@@ -1,0 +1,12 @@
+/home/patrick/projects/rift/src-tauri/target/debug/deps/cookie-e49a3bf53dbe2288.d: /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/lib.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/builder.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/parse.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/jar.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/delta.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/same_site.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/expiration.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/prefix.rs
+
+/home/patrick/projects/rift/src-tauri/target/debug/deps/libcookie-e49a3bf53dbe2288.rmeta: /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/lib.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/builder.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/parse.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/jar.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/delta.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/same_site.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/expiration.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/prefix.rs
+
+/home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/lib.rs:
+/home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/builder.rs:
+/home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/parse.rs:
+/home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/jar.rs:
+/home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/delta.rs:
+/home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/same_site.rs:
+/home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/expiration.rs:
+/home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/prefix.rs:

@@ -1,0 +1,10 @@
+/home/patrick/projects/rift/src-tauri/target/debug/deps/postgres_types-b0c94f9ce495766b.d: /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.13/src/lib.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.13/src/serde_json_1.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.13/src/pg_lsn.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.13/src/private.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.13/src/special.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.13/src/type_gen.rs
+
+/home/patrick/projects/rift/src-tauri/target/debug/deps/libpostgres_types-b0c94f9ce495766b.rmeta: /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.13/src/lib.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.13/src/serde_json_1.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.13/src/pg_lsn.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.13/src/private.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.13/src/special.rs /home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.13/src/type_gen.rs
+
+/home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.13/src/lib.rs:
+/home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.13/src/serde_json_1.rs:
+/home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.13/src/pg_lsn.rs:
+/home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.13/src/private.rs:
+/home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.13/src/special.rs:
+/home/patrick/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.13/src/type_gen.rs:

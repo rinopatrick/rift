@@ -63,26 +63,23 @@ pub async fn execute_query(
 }
 
 fn row_to_string(row: &Row, idx: usize) -> Option<String> {
-    if let Ok(val) = row.try_get::<_, String>(idx) {
-        return Some(val);
+    if let Ok(val) = row.try_get::<_, Option<String>>(idx) {
+        return val;
     }
-    if let Ok(val) = row.try_get::<_, i32>(idx) {
-        return Some(val.to_string());
+    if let Ok(val) = row.try_get::<_, Option<i32>>(idx) {
+        return val.map(|v| v.to_string());
     }
-    if let Ok(val) = row.try_get::<_, i64>(idx) {
-        return Some(val.to_string());
+    if let Ok(val) = row.try_get::<_, Option<i64>>(idx) {
+        return val.map(|v| v.to_string());
     }
-    if let Ok(val) = row.try_get::<_, bool>(idx) {
-        return Some(val.to_string());
+    if let Ok(val) = row.try_get::<_, Option<bool>>(idx) {
+        return val.map(|v| v.to_string());
     }
-    if let Ok(val) = row.try_get::<_, f64>(idx) {
-        return Some(val.to_string());
+    if let Ok(val) = row.try_get::<_, Option<f64>>(idx) {
+        return val.map(|v| v.to_string());
     }
-    if let Ok(val) = row.try_get::<_, serde_json::Value>(idx) {
-        return Some(val.to_string());
-    }
-    if row.is_null(idx) {
-        return None;
+    if let Ok(val) = row.try_get::<_, Option<serde_json::Value>>(idx) {
+        return val.map(|v| v.to_string());
     }
     Some("[unsupported]".to_string())
 }

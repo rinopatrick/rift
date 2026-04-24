@@ -52,31 +52,31 @@
     </div>
     <div class="p-4 space-y-3">
       <div>
-        <label class="block text-[11px] font-medium text-[#a0a0a0] mb-1">Name</label>
-        <input type="text" bind:value={name} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" placeholder="My Database" />
+        <label for="conn-name" class="block text-[11px] font-medium text-[#a0a0a0] mb-1">Name</label>
+        <input id="conn-name" type="text" bind:value={name} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" placeholder="My Database" />
       </div>
       <div class="grid grid-cols-3 gap-2">
         <div class="col-span-2">
-          <label class="block text-[11px] font-medium text-[#a0a0a0] mb-1">Host</label>
-          <input type="text" bind:value={host} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" />
+          <label for="conn-host" class="block text-[11px] font-medium text-[#a0a0a0] mb-1">Host</label>
+          <input id="conn-host" type="text" bind:value={host} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" />
         </div>
         <div>
-          <label class="block text-[11px] font-medium text-[#a0a0a0] mb-1">Port</label>
-          <input type="number" bind:value={port} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" />
+          <label for="conn-port" class="block text-[11px] font-medium text-[#a0a0a0] mb-1">Port</label>
+          <input id="conn-port" type="number" bind:value={port} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" />
         </div>
       </div>
       <div>
-        <label class="block text-[11px] font-medium text-[#a0a0a0] mb-1">Database</label>
-        <input type="text" bind:value={database} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" />
+        <label for="conn-db" class="block text-[11px] font-medium text-[#a0a0a0] mb-1">Database</label>
+        <input id="conn-db" type="text" bind:value={database} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" />
       </div>
       <div class="grid grid-cols-2 gap-2">
         <div>
-          <label class="block text-[11px] font-medium text-[#a0a0a0] mb-1">Username</label>
-          <input type="text" bind:value={username} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" />
+          <label for="conn-user" class="block text-[11px] font-medium text-[#a0a0a0] mb-1">Username</label>
+          <input id="conn-user" type="text" bind:value={username} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" />
         </div>
         <div>
-          <label class="block text-[11px] font-medium text-[#a0a0a0] mb-1">Password</label>
-          <input type="password" bind:value={password} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" />
+          <label for="conn-pass" class="block text-[11px] font-medium text-[#a0a0a0] mb-1">Password</label>
+          <input id="conn-pass" type="password" bind:value={password} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" />
         </div>
       </div>
       {#if testResult !== null}
