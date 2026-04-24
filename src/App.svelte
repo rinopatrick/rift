@@ -1,23 +1,27 @@
 <script lang="ts">
-  let sidebarWidth = 240;
+  import Sidebar from "./lib/components/Sidebar.svelte";
+  import ConnectionModal from "./lib/components/ConnectionModal.svelte";
+  import TabBar from "./lib/components/TabBar.svelte";
+  import QueryEditor from "./lib/components/QueryEditor.svelte";
+  import ResultGrid from "./lib/components/ResultGrid.svelte";
+  import StatusBar from "./lib/components/StatusBar.svelte";
 </script>
 
-<div class="flex h-screen w-screen bg-rift-base overflow-hidden">
-  <aside class="shrink-0 bg-rift-surface border-r border-[#2a2a2a] flex flex-col" style="width: {sidebarWidth}px">
-    <div class="px-3 py-2 border-b border-[#2a2a2a]">
-      <span class="text-sm font-semibold tracking-tight">Rift</span>
-    </div>
-    <div class="flex-1 p-2">
-      <p class="text-xs text-[#6b6b6b]">Connections will appear here</p>
-    </div>
-  </aside>
+<div class="flex h-screen w-screen bg-[#0c0c0c] overflow-hidden">
+  <Sidebar />
 
   <main class="flex-1 flex flex-col min-w-0">
-    <div class="flex-1 flex items-center justify-center">
-      <p class="text-sm text-[#6b6b6b]">Select a connection to start</p>
+    <TabBar />
+    <div class="flex-1 flex flex-col min-h-0">
+      <div class="h-[45%] min-h-[120px]">
+        <QueryEditor />
+      </div>
+      <div class="h-[55%] min-h-[120px] border-t border-[#2a2a2a]">
+        <ResultGrid />
+      </div>
     </div>
-    <div class="h-6 bg-rift-base border-t border-[#1e1e1e] flex items-center px-3 text-[11px] text-[#6b6b6b] font-mono">
-      <span>Ready</span>
-    </div>
+    <StatusBar />
   </main>
 </div>
+
+<ConnectionModal />
