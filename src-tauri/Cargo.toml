@@ -23,6 +23,7 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 thiserror = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
 time = { version = "0.3", features = ["serde", "formatting", "parsing"] }
+tauri-plugin-dialog = "2"
 
 [features]
 default = ["custom-protocol"]

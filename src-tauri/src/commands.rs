@@ -1,13 +1,14 @@
 use tauri::State;
 use crate::AppState;
 use crate::db::connection::{ConnectionConfig, ConnectionInfo};
+use crate::db::driver::DriverWrapper;
 use crate::db::pool::create_pool;
 use crate::db::query::execute_query;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex as AsyncMutex;
 
-pub struct ConnectionPools(Arc<AsyncMutex<HashMap<String, deadpool_postgres::Pool>>>);
+pub struct ConnectionPools(Arc<AsyncMutex<HashMap<String, DriverWrapper>>>);
 
 impl ConnectionPools {
     pub fn new() -> Self {
@@ -17,10 +18,15 @@ impl ConnectionPools {
 
 #[tauri::command]
 pub async fn test_connection(config: ConnectionConfig) -> Result<bool, String> {
-    let pool = create_pool(&config).map_err(|e| e.to_string())?;
-    let client = pool.get().await.map_err(|e| e.to_string())?;
-    client.execute("SELECT 1", &[]).await.map_err(|e| e.to_string())?;
-    Ok(true)
+    if config.driver == "sqlite" {
+        let _ = rusqlite::Connection::open(&config.file_path).map_err(|e| e.to_string())?;
+        Ok(true)
+    } else {
+        let pool = create_pool(&config).map_err(|e| e.to_string())?;
+        let client = pool.get().await.map_err(|e| e.to_string())?;
+        client.execute("SELECT 1", &[]).await.map_err(|e| e.to_string())?;
+        Ok(true)
+    }
 }
 
 #[tauri::command]
@@ -53,14 +59,18 @@ pub async fn connect_to_database(
         state.get_connection_config(&id).map_err(|e| e.to_string())?
             .ok_or_else(|| "Connection not found".to_string())?
     };
-    
-    let pool = create_pool(&config).map_err(|e| e.to_string())?;
-    let client = pool.get().await.map_err(|e| e.to_string())?;
-    client.execute("SELECT 1", &[]).await.map_err(|e| e.to_string())?;
-    
+
+    let driver = if config.driver == "sqlite" {
+        DriverWrapper::Sqlite(config.file_path.clone())
+    } else {
+        let pool = create_pool(&config).map_err(|e| e.to_string())?;
+        let client = pool.get().await.map_err(|e| e.to_string())?;
+        client.execute("SELECT 1", &[]).await.map_err(|e| e.to_string())?;
+        DriverWrapper::Postgres(pool)
+    };
+
     let mut pools = pools.0.lock().await;
-    pools.insert(id, pool);
-    
+    pools.insert(id, driver);
     Ok(true)
 }
 
@@ -71,9 +81,8 @@ pub async fn execute_sql(
     sql: String,
 ) -> Result<crate::db::query::QueryResult, String> {
     let pools = pools.0.lock().await;
-    let pool = pools.get(&connection_id).ok_or("Not connected")?;
-    let client = pool.get().await.map_err(|e| e.to_string())?;
-    execute_query(&client, &sql).await.map_err(|e| e.to_string())
+    let driver = pools.get(&connection_id).ok_or("Not connected")?;
+    driver.execute(&sql).await
 }
 
 #[tauri::command]
@@ -82,9 +91,8 @@ pub async fn get_schema(
     connection_id: String,
 ) -> Result<Vec<crate::schema::SchemaInfo>, String> {
     let pools = pools.0.lock().await;
-    let pool = pools.get(&connection_id).ok_or("Not connected")?;
-    let client = pool.get().await.map_err(|e| e.to_string())?;
-    crate::schema::get_schemas(&client).await.map_err(|e| e.to_string())
+    let driver = pools.get(&connection_id).ok_or("Not connected")?;
+    driver.get_schema().await
 }
 
 #[tauri::command]
@@ -139,14 +147,13 @@ pub async fn export_csv(
     sql: String,
 ) -> Result<String, String> {
     let pools = pools.0.lock().await;
-    let pool = pools.get(&connection_id).ok_or("Not connected")?;
-    let client = pool.get().await.map_err(|e| e.to_string())?;
-    let result = execute_query(&client, &sql).await.map_err(|e| e.to_string())?;
-    
+    let driver = pools.get(&connection_id).ok_or("Not connected")?;
+    let result = driver.execute(&sql).await?;
+
     let mut csv = String::new();
     csv.push_str(&result.columns.iter().map(|c| c.name.clone()).collect::<Vec<_>>().join(","));
     csv.push('\n');
-    
+
     for row in &result.rows {
         let cells: Vec<String> = row.iter().map(|c| {
             match c {
@@ -157,7 +164,7 @@ pub async fn export_csv(
         csv.push_str(&cells.join(","));
         csv.push('\n');
     }
-    
+
     Ok(csv)
 }
 
@@ -168,10 +175,9 @@ pub async fn export_json(
     sql: String,
 ) -> Result<String, String> {
     let pools = pools.0.lock().await;
-    let pool = pools.get(&connection_id).ok_or("Not connected")?;
-    let client = pool.get().await.map_err(|e| e.to_string())?;
-    let result = execute_query(&client, &sql).await.map_err(|e| e.to_string())?;
-    
+    let driver = pools.get(&connection_id).ok_or("Not connected")?;
+    let result = driver.execute(&sql).await?;
+
     let mut objects = Vec::new();
     for row in &result.rows {
         let mut obj = serde_json::Map::new();
@@ -184,6 +190,6 @@ pub async fn export_json(
         }
         objects.push(serde_json::Value::Object(obj));
     }
-    
+
     serde_json::to_string_pretty(&objects).map_err(|e| e.to_string())
 }

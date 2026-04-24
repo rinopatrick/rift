@@ -1,23 +1,27 @@
 export interface ConnectionConfig {
   id: string;
   name: string;
+  driver: string;
   host: string;
   port: number;
   database: string;
   username: string;
   password: string;
   ssl_mode: string;
+  file_path: string;
   created_at: string;
 }
 
 export interface ConnectionInfo {
   id: string;
   name: string;
+  driver: string;
   host: string;
   port: number;
   database: string;
   username: string;
   ssl_mode: string;
+  file_path: string;
   created_at: string;
 }
 
