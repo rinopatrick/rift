@@ -107,6 +107,32 @@ pub fn get_query_history(
 }
 
 #[tauri::command]
+pub fn save_bookmark(
+    state: State<AppState>,
+    connection_id: String,
+    name: String,
+    query: String,
+) -> Result<String, String> {
+    let state = state.0.lock().map_err(|e| e.to_string())?;
+    state.save_bookmark(&connection_id, &name, &query).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_bookmarks(
+    state: State<AppState>,
+    connection_id: String,
+) -> Result<Vec<crate::state::QueryBookmark>, String> {
+    let state = state.0.lock().map_err(|e| e.to_string())?;
+    state.get_bookmarks(&connection_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_bookmark(state: State<AppState>, id: String) -> Result<(), String> {
+    let state = state.0.lock().map_err(|e| e.to_string())?;
+    state.delete_bookmark(&id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn export_csv(
     pools: State<'_, ConnectionPools>,
     connection_id: String,

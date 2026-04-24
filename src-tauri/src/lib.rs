@@ -30,6 +30,9 @@ pub fn run() {
             commands::get_schema,
             commands::save_query_history,
             commands::get_query_history,
+            commands::save_bookmark,
+            commands::get_bookmarks,
+            commands::delete_bookmark,
             commands::export_csv,
             commands::export_json,
         ])

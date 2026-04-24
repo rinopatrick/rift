@@ -10,6 +10,15 @@ pub struct QueryHistoryItem {
     pub executed_at: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct QueryBookmark {
+    pub id: String,
+    pub connection_id: String,
+    pub name: String,
+    pub query: String,
+    pub created_at: String,
+}
+
 pub struct AppState {
     pub db: Connection,
 }
@@ -40,6 +49,17 @@ impl AppState {
                 connection_id TEXT NOT NULL,
                 query TEXT NOT NULL,
                 executed_at TEXT NOT NULL
+            )",
+            [],
+        )?;
+        
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS query_bookmarks (
+                id TEXT PRIMARY KEY,
+                connection_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                query TEXT NOT NULL,
+                created_at TEXT NOT NULL
             )",
             [],
         )?;
@@ -132,5 +152,36 @@ impl AppState {
         })?;
         
         rows.collect()
+    }
+
+    pub fn save_bookmark(&self, connection_id: &str, name: &str, query: &str) -> SqlResult<String> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let created_at = time::OffsetDateTime::now_utc().to_string();
+        self.db.execute(
+            "INSERT INTO query_bookmarks (id, connection_id, name, query, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+            [&id, connection_id, name, query, &created_at],
+        )?;
+        Ok(id)
+    }
+
+    pub fn get_bookmarks(&self, connection_id: &str) -> SqlResult<Vec<QueryBookmark>> {
+        let mut stmt = self.db.prepare(
+            "SELECT id, connection_id, name, query, created_at FROM query_bookmarks WHERE connection_id = ?1 ORDER BY created_at DESC"
+        )?;
+        let rows = stmt.query_map([connection_id], |row| {
+            Ok(QueryBookmark {
+                id: row.get(0)?,
+                connection_id: row.get(1)?,
+                name: row.get(2)?,
+                query: row.get(3)?,
+                created_at: row.get(4)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    pub fn delete_bookmark(&self, id: &str) -> SqlResult<()> {
+        self.db.execute("DELETE FROM query_bookmarks WHERE id = ?1", [id])?;
+        Ok(())
     }
 }

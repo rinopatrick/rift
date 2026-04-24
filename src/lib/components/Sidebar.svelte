@@ -2,6 +2,7 @@
   import { uiStore } from "../stores/ui";
   import ConnectionList from "./ConnectionList.svelte";
   import SchemaTree from "./SchemaTree.svelte";
+  import BookmarkPanel from "./BookmarkPanel.svelte";
 
   let width = $state(240);
 </script>
@@ -29,6 +30,7 @@
       <ConnectionList />
       <div class="border-t border-[#2a2a2a] flex-1 min-h-0 flex flex-col">
         <SchemaTree />
+        <BookmarkPanel />
       </div>
     </div>
   {/if}
