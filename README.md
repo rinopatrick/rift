@@ -12,8 +12,9 @@ A modern, dark-native PostgreSQL client. Built with Rust + Tauri. Single binary.
 [![License](https://img.shields.io/github/license/rinopatrick/rift?style=flat-square&color=00d4ff)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/rinopatrick/rift?style=flat-square&color=00d4ff&logo=github)](https://github.com/rinopatrick/rift/releases)
 [![Downloads](https://img.shields.io/github/downloads/rinopatrick/rift/total?style=flat-square&color=00d4ff)](https://github.com/rinopatrick/rift/releases)
+[![Website](https://img.shields.io/badge/Website-rinopatrick.github.io/rift-00d4ff?style=flat-square&logo=github)](https://rinopatrick.github.io/rift/)
 
-[Download](https://github.com/rinopatrick/rift/releases) · [Roadmap](#roadmap) · [Contributing](#contributing) · [Sponsor](#sponsor)
+[Website](https://rinopatrick.github.io/rift/) · [Download](https://github.com/rinopatrick/rift/releases) · [Roadmap](#roadmap) · [Contributing](#contributing) · [Sponsor](#sponsor)
 
 <img src="https://raw.githubusercontent.com/rinopatrick/rift/main/docs/screenshots/rift-hero.png" width="90%" alt="Rift Screenshot" />
 
