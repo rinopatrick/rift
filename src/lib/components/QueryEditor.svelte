@@ -53,6 +53,12 @@
     }
   }
 
+  function handleCancel() {
+    if (activeTab) {
+      queryStore.cancelQuery(activeTab.id);
+    }
+  }
+
   function handleChange(value: string) {
     if (activeTab) {
       queryStore.updateSql(activeTab.id, value);
@@ -65,14 +71,24 @@
     <span class="text-[11px] text-[#6b6b6b] uppercase tracking-wider">Query Editor</span>
     <div class="flex items-center gap-2">
       <span class="text-[10px] text-[#4a4a4a] font-mono hidden sm:inline">Ctrl+↵ Run · Ctrl+Shift+↵ New Tab</span>
-      <button
-        onclick={handleRun}
-        disabled={!connectionStore.activeConnectionId || activeTab?.status === "running"}
-        class="flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium bg-[#00d4ff] text-black rounded hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-        Run
-      </button>
+      {#if activeTab?.status === "running"}
+        <button
+          onclick={handleCancel}
+          class="flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium bg-[#ff4444] text-white rounded hover:brightness-110"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          Cancel
+        </button>
+      {:else}
+        <button
+          onclick={handleRun}
+          disabled={!connectionStore.activeConnectionId}
+          class="flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium bg-[#00d4ff] text-black rounded hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          Run
+        </button>
+      {/if}
     </div>
   </div>
   

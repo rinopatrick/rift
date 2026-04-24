@@ -31,6 +31,8 @@
     {/if}
     {#if activeTab?.status === "running"}
       <span class="text-[#00d4ff]">Executing...</span>
+    {:else if activeTab?.status === "cancelled"}
+      <span class="text-[#ff8c42]">Cancelled</span>
     {/if}
     <QueryHistory />
   </div>

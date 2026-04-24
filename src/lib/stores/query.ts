@@ -29,24 +29,47 @@ export function createQueryStore() {
     const tab = tabs.find((t) => t.id === tabId);
     if (!tab || !tab.sql.trim()) return;
 
+    const queryId = crypto.randomUUID();
+
     tabs = tabs.map((t) =>
-      t.id === tabId ? { ...t, status: "running" as const, result: null, error: undefined } : t
+      t.id === tabId ? { ...t, status: "running" as const, result: null, error: undefined, queryId } : t
     );
 
     try {
       const result = await invoke<QueryResult>("execute_sql", {
         connectionId,
         sql: tab.sql,
+        queryId,
       });
       tabs = tabs.map((t) =>
-        t.id === tabId ? { ...t, status: "idle" as const, result } : t
+        t.id === tabId ? { ...t, status: "idle" as const, result, queryId: undefined } : t
       );
       // Save to history
       await invoke("save_query_history", { connectionId, query: tab.sql });
     } catch (err) {
+      const msg = String(err);
+      const isCancelled = msg.includes("cancelled") || msg.includes("Cancel");
       tabs = tabs.map((t) =>
-        t.id === tabId ? { ...t, status: "error" as const, error: String(err) } : t
+        t.id === tabId
+          ? {
+              ...t,
+              status: isCancelled ? ("cancelled" as const) : ("error" as const),
+              error: msg,
+              queryId: undefined,
+            }
+          : t
       );
+    }
+  }
+
+  async function cancelQuery(tabId: string) {
+    const tab = tabs.find((t) => t.id === tabId);
+    if (!tab?.queryId) return;
+
+    try {
+      await invoke("cancel_query", { queryId: tab.queryId });
+    } catch (err) {
+      // Ignore cancel errors
     }
   }
 
@@ -58,6 +81,7 @@ export function createQueryStore() {
     removeTab,
     updateSql,
     executeQuery,
+    cancelQuery,
   };
 }
 

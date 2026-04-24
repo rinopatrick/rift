@@ -3,14 +3,21 @@ use crate::AppState;
 use crate::db::connection::{ConnectionConfig, ConnectionInfo};
 use crate::db::driver::DriverWrapper;
 use crate::db::pool::create_pool;
-use crate::db::query::execute_query;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex as AsyncMutex;
 
-pub struct ConnectionPools(Arc<AsyncMutex<HashMap<String, DriverWrapper>>>);
+pub struct ConnectionPools(pub Arc<AsyncMutex<HashMap<String, DriverWrapper>>>);
 
 impl ConnectionPools {
+    pub fn new() -> Self {
+        Self(Arc::new(AsyncMutex::new(HashMap::new())))
+    }
+}
+
+pub struct ActiveQueries(pub Arc<AsyncMutex<HashMap<String, tokio::task::AbortHandle>>>);
+
+impl ActiveQueries {
     pub fn new() -> Self {
         Self(Arc::new(AsyncMutex::new(HashMap::new())))
     }
@@ -77,12 +84,54 @@ pub async fn connect_to_database(
 #[tauri::command]
 pub async fn execute_sql(
     pools: State<'_, ConnectionPools>,
+    active_queries: State<'_, ActiveQueries>,
     connection_id: String,
     sql: String,
+    query_id: String,
 ) -> Result<crate::db::query::QueryResult, String> {
-    let pools = pools.0.lock().await;
-    let driver = pools.get(&connection_id).ok_or("Not connected")?;
-    driver.execute(&sql).await
+    // Clone driver and release pool lock so other operations aren't blocked
+    let driver = {
+        let pools = pools.0.lock().await;
+        match pools.get(&connection_id).ok_or("Not connected")? {
+            DriverWrapper::Postgres(pool) => DriverWrapper::Postgres(pool.clone()),
+            DriverWrapper::Sqlite(path) => DriverWrapper::Sqlite(path.clone()),
+        }
+    };
+
+    let handle = tokio::spawn(async move {
+        driver.execute(&sql).await
+    });
+
+    {
+        let mut aq = active_queries.0.lock().await;
+        aq.insert(query_id.clone(), handle.abort_handle());
+    }
+
+    let result = handle.await;
+
+    {
+        let mut aq = active_queries.0.lock().await;
+        aq.remove(&query_id);
+    }
+
+    match result {
+        Ok(Ok(r)) => Ok(r),
+        Ok(Err(e)) => Err(e),
+        Err(e) if e.is_cancelled() => Err("Query cancelled by user".to_string()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+pub async fn cancel_query(
+    active_queries: State<'_, ActiveQueries>,
+    query_id: String,
+) -> Result<(), String> {
+    let mut aq = active_queries.0.lock().await;
+    if let Some(handle) = aq.remove(&query_id) {
+        handle.abort();
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -157,7 +206,7 @@ pub async fn export_csv(
     for row in &result.rows {
         let cells: Vec<String> = row.iter().map(|c| {
             match c {
-                Some(v) => format!("\"{}\"", v.replace('\"', "\"")),
+                Some(v) => format!("\"{}\"", v.replace('\"', "\"\"")),
                 None => "\"\"".to_string(),
             }
         }).collect();

@@ -13,6 +13,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .manage(commands::ConnectionPools::new())
+        .manage(commands::ActiveQueries::new())
         .setup(|app| {
             let app_dir = app.path().app_data_dir().expect("failed to get app data dir");
             std::fs::create_dir_all(&app_dir).ok();
@@ -27,6 +28,7 @@ pub fn run() {
             commands::delete_connection,
             commands::connect_to_database,
             commands::execute_sql,
+            commands::cancel_query,
             commands::get_schema,
             commands::save_query_history,
             commands::get_query_history,

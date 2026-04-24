@@ -2,6 +2,7 @@ use tokio::task;
 use crate::db::query::{QueryResult, ColumnInfo};
 use crate::schema::{SchemaInfo, TableInfo, ColumnInfo as SchemaColumn};
 
+#[derive(Clone)]
 pub enum DriverWrapper {
     Postgres(deadpool_postgres::Pool),
     Sqlite(String),

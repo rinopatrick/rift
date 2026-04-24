@@ -56,8 +56,9 @@ export interface QueryTab {
   name: string;
   sql: string;
   result: QueryResult | null;
-  status: "idle" | "running" | "error";
+  status: "idle" | "running" | "error" | "cancelled";
   error?: string;
+  queryId?: string;
 }
 
 export interface QueryHistoryItem {

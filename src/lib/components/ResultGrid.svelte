@@ -92,6 +92,7 @@
       await invoke("execute_sql", {
         connectionId: connectionStore.activeConnectionId,
         sql: updateSql,
+        queryId: crypto.randomUUID(),
       });
       // Refresh
       await queryStore.executeQuery(connectionStore.activeConnectionId, activeTab.id);
@@ -163,6 +164,10 @@
   {:else if activeTab?.status === "error"}
     <div class="flex-1 flex items-center justify-center p-4">
       <div class="text-[#ef4444] text-[12px] font-mono max-w-lg">{activeTab.error}</div>
+    </div>
+  {:else if activeTab?.status === "cancelled"}
+    <div class="flex-1 flex items-center justify-center p-4">
+      <div class="text-[#a0a0a0] text-[12px] font-mono">Query cancelled by user</div>
     </div>
   {:else if result && result.columns.length > 0}
     {@const tableName = parseTableName(activeTab?.sql ?? "")}
