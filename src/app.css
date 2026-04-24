@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-rift-base text-[#e8e8e8] font-sans antialiased;
+    font-size: 13px;
+  }
+  * {
+    @apply border-[#2a2a2a];
+  }
+}

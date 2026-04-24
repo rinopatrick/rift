@@ -1,0 +1,32 @@
+use tauri::Manager;
+use std::sync::Mutex;
+
+mod commands;
+mod db;
+mod state;
+
+pub struct AppState(Mutex<state::AppState>);
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .manage(commands::ConnectionPools::new())
+        .setup(|app| {
+            let app_dir = app.path().app_data_dir().expect("failed to get app data dir");
+            std::fs::create_dir_all(&app_dir).ok();
+            let app_state = state::AppState::new(&app_dir).expect("failed to init state");
+            app.manage(AppState(Mutex::new(app_state)));
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::test_connection,
+            commands::save_connection,
+            commands::get_connections,
+            commands::delete_connection,
+            commands::connect_to_database,
+            commands::execute_sql,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
