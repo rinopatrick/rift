@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ConnectionConfig, ConnectionInfo } from "../types";
+import { schemaStore } from "./schema";
 
 export function createConnectionStore() {
   let connections = $state<ConnectionInfo[]>([]);
@@ -21,6 +22,7 @@ export function createConnectionStore() {
     await loadConnections();
     if (activeConnectionId === id) {
       activeConnectionId = null;
+      schemaStore.clear();
     }
   }
 
@@ -33,6 +35,7 @@ export function createConnectionStore() {
     try {
       await invoke("connect_to_database", { id });
       activeConnectionId = id;
+      await schemaStore.loadSchema(id);
     } finally {
       isConnecting = false;
     }

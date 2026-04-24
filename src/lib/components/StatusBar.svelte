@@ -1,6 +1,7 @@
 <script lang="ts">
   import { connectionStore } from "../stores/connection";
   import { queryStore } from "../stores/query";
+  import QueryHistory from "./QueryHistory.svelte";
 
   let activeConn = $derived(
     connectionStore.connections.find((c) => c.id === connectionStore.activeConnectionId)
@@ -31,5 +32,6 @@
     {#if activeTab?.status === "running"}
       <span class="text-[#00d4ff]">Executing...</span>
     {/if}
+    <QueryHistory />
   </div>
 </div>

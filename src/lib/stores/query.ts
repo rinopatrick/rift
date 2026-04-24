@@ -41,6 +41,8 @@ export function createQueryStore() {
       tabs = tabs.map((t) =>
         t.id === tabId ? { ...t, status: "idle" as const, result } : t
       );
+      // Save to history
+      await invoke("save_query_history", { connectionId, query: tab.sql });
     } catch (err) {
       tabs = tabs.map((t) =>
         t.id === tabId ? { ...t, status: "error" as const, error: String(err) } : t

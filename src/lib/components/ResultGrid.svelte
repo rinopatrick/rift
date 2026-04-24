@@ -1,16 +1,52 @@
 <script lang="ts">
   import { queryStore } from "../stores/query";
+  import { connectionStore } from "../stores/connection";
+  import { invoke } from "@tauri-apps/api/core";
 
   let activeTab = $derived(queryStore.tabs.find((t) => t.id === queryStore.activeTabId));
   let result = $derived(activeTab?.result);
+
+  async function exportCSV() {
+    if (!connectionStore.activeConnectionId || !activeTab?.sql) return;
+    const csv = await invoke<string>("export_csv", {
+      connectionId: connectionStore.activeConnectionId,
+      sql: activeTab.sql,
+    });
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "export.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportJSON() {
+    if (!connectionStore.activeConnectionId || !activeTab?.sql) return;
+    const json = await invoke<string>("export_json", {
+      connectionId: connectionStore.activeConnectionId,
+      sql: activeTab.sql,
+    });
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "export.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 </script>
 
 <div class="flex flex-col h-full bg-[#0c0c0c]">
   <div class="flex items-center justify-between px-3 py-1.5 bg-[#141414] border-b border-[#2a2a2a]">
     <span class="text-[11px] text-[#6b6b6b] uppercase tracking-wider">Results</span>
-    {#if result}
-      <span class="text-[11px] text-[#a0a0a0] font-mono">{result.row_count} rows · {result.execution_time_ms}ms</span>
-    {/if}
+    <div class="flex items-center gap-2">
+      {#if result}
+        <span class="text-[11px] text-[#a0a0a0] font-mono mr-2">{result.row_count} rows · {result.execution_time_ms}ms</span>
+        <button onclick={exportCSV} class="text-[10px] font-medium px-2 py-0.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded text-[#a0a0a0] hover:text-[#e8e8e8] hover:border-[#333333]">CSV</button>
+        <button onclick={exportJSON} class="text-[10px] font-medium px-2 py-0.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded text-[#a0a0a0] hover:text-[#e8e8e8] hover:border-[#333333]">JSON</button>
+      {/if}
+    </div>
   </div>
 
   {#if activeTab?.status === "running"}

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { uiStore } from "../stores/ui";
   import ConnectionList from "./ConnectionList.svelte";
+  import SchemaTree from "./SchemaTree.svelte";
 
   let width = $state(240);
 </script>
@@ -24,8 +25,11 @@
     </button>
   </div>
   {#if !uiStore.sidebarCollapsed}
-    <div class="flex-1 overflow-y-auto">
+    <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
       <ConnectionList />
+      <div class="border-t border-[#2a2a2a] flex-1 min-h-0 flex flex-col">
+        <SchemaTree />
+      </div>
     </div>
   {/if}
 </aside>

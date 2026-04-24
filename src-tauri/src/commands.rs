@@ -75,3 +75,89 @@ pub async fn execute_sql(
     let client = pool.get().await.map_err(|e| e.to_string())?;
     execute_query(&client, &sql).await.map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn get_schema(
+    pools: State<'_, ConnectionPools>,
+    connection_id: String,
+) -> Result<Vec<crate::schema::SchemaInfo>, String> {
+    let pools = pools.0.lock().await;
+    let pool = pools.get(&connection_id).ok_or("Not connected")?;
+    let client = pool.get().await.map_err(|e| e.to_string())?;
+    crate::schema::get_schemas(&client).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn save_query_history(
+    state: State<AppState>,
+    connection_id: String,
+    query: String,
+) -> Result<(), String> {
+    let state = state.0.lock().map_err(|e| e.to_string())?;
+    state.save_query_history(&connection_id, &query).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_query_history(
+    state: State<AppState>,
+    connection_id: String,
+) -> Result<Vec<crate::state::QueryHistoryItem>, String> {
+    let state = state.0.lock().map_err(|e| e.to_string())?;
+    state.get_query_history(&connection_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn export_csv(
+    pools: State<'_, ConnectionPools>,
+    connection_id: String,
+    sql: String,
+) -> Result<String, String> {
+    let pools = pools.0.lock().await;
+    let pool = pools.get(&connection_id).ok_or("Not connected")?;
+    let client = pool.get().await.map_err(|e| e.to_string())?;
+    let result = execute_query(&client, &sql).await.map_err(|e| e.to_string())?;
+    
+    let mut csv = String::new();
+    csv.push_str(&result.columns.iter().map(|c| c.name.clone()).collect::<Vec<_>>().join(","));
+    csv.push('\n');
+    
+    for row in &result.rows {
+        let cells: Vec<String> = row.iter().map(|c| {
+            match c {
+                Some(v) => format!("\"{}\"", v.replace('\"', "\"")),
+                None => "\"\"".to_string(),
+            }
+        }).collect();
+        csv.push_str(&cells.join(","));
+        csv.push('\n');
+    }
+    
+    Ok(csv)
+}
+
+#[tauri::command]
+pub async fn export_json(
+    pools: State<'_, ConnectionPools>,
+    connection_id: String,
+    sql: String,
+) -> Result<String, String> {
+    let pools = pools.0.lock().await;
+    let pool = pools.get(&connection_id).ok_or("Not connected")?;
+    let client = pool.get().await.map_err(|e| e.to_string())?;
+    let result = execute_query(&client, &sql).await.map_err(|e| e.to_string())?;
+    
+    let mut objects = Vec::new();
+    for row in &result.rows {
+        let mut obj = serde_json::Map::new();
+        for (i, col) in result.columns.iter().enumerate() {
+            let value = match &row[i] {
+                Some(v) => serde_json::Value::String(v.clone()),
+                None => serde_json::Value::Null,
+            };
+            obj.insert(col.name.clone(), value);
+        }
+        objects.push(serde_json::Value::Object(obj));
+    }
+    
+    serde_json::to_string_pretty(&objects).map_err(|e| e.to_string())
+}

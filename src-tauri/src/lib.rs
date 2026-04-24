@@ -3,6 +3,7 @@ use std::sync::Mutex;
 
 mod commands;
 mod db;
+mod schema;
 mod state;
 
 pub struct AppState(Mutex<state::AppState>);
@@ -26,6 +27,11 @@ pub fn run() {
             commands::delete_connection,
             commands::connect_to_database,
             commands::execute_sql,
+            commands::get_schema,
+            commands::save_query_history,
+            commands::get_query_history,
+            commands::export_csv,
+            commands::export_json,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,5 +1,14 @@
 use rusqlite::{Connection, Result as SqlResult};
+use serde::Serialize;
 use crate::db::connection::{ConnectionConfig, ConnectionInfo};
+
+#[derive(Debug, Clone, Serialize)]
+pub struct QueryHistoryItem {
+    pub id: String,
+    pub connection_id: String,
+    pub query: String,
+    pub executed_at: String,
+}
 
 pub struct AppState {
     pub db: Connection,
@@ -96,5 +105,32 @@ impl AppState {
         })?;
         
         rows.next().transpose()
+    }
+
+    pub fn save_query_history(&self, connection_id: &str, query: &str) -> SqlResult<()> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let executed_at = time::OffsetDateTime::now_utc().to_string();
+        self.db.execute(
+            "INSERT INTO query_history (id, connection_id, query, executed_at) VALUES (?1, ?2, ?3, ?4)",
+            [&id, connection_id, query, &executed_at],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_query_history(&self, connection_id: &str) -> SqlResult<Vec<QueryHistoryItem>> {
+        let mut stmt = self.db.prepare(
+            "SELECT id, connection_id, query, executed_at FROM query_history WHERE connection_id = ?1 ORDER BY executed_at DESC LIMIT 100"
+        )?;
+        
+        let rows = stmt.query_map([connection_id], |row| {
+            Ok(QueryHistoryItem {
+                id: row.get(0)?,
+                connection_id: row.get(1)?,
+                query: row.get(2)?,
+                executed_at: row.get(3)?,
+            })
+        })?;
+        
+        rows.collect()
     }
 }
