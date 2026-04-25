@@ -8,7 +8,8 @@
   import ProfilePanel from "./ProfilePanel.svelte";
 
   let activeTab = $derived(queryStore.tabs.find((t) => t.id === queryStore.activeTabId));
-  let result = $derived(activeTab?.result);
+  let result = $derived(activeTab ? queryStore.getActiveResult(activeTab.id) : null);
+  let hasMultipleResults = $derived((activeTab?.results.length ?? 0) > 1);
 
   // Virtualization
   const ROW_HEIGHT = 28;
@@ -30,13 +31,11 @@
   let editingCell = $state<{ row: number; col: number } | null>(null);
   let editValue = $state("");
   let updating = $state(false);
-  let showChart = $state(false);
   let resultView = $state<"grid" | "chart" | "explain" | "profile">("grid");
 
   // Reset view when active tab or result changes
   $effect(() => {
     if (activeTab?.id) {
-      showChart = false;
       resultView = "grid";
     }
   });
@@ -156,6 +155,11 @@
     a.click();
     URL.revokeObjectURL(url);
   }
+
+  function selectResultSet(index: number) {
+    if (!activeTab) return;
+    queryStore.setActiveResultIndex(activeTab.id, index);
+  }
 </script>
 
 <div class="flex flex-col h-full bg-[#0c0c0c]">
@@ -176,6 +180,23 @@
       {/if}
     </div>
   </div>
+
+  <!-- Multi-result set tabs -->
+  {#if hasMultipleResults && resultView === "grid"}
+    <div class="flex items-center gap-1 px-3 py-1 bg-[#141414] border-b border-[#2a2a2a] shrink-0 overflow-x-auto">
+      {#each activeTab!.results as _, i}
+        <button
+          onclick={() => selectResultSet(i)}
+          class="text-[10px] font-medium px-2.5 py-0.5 rounded whitespace-nowrap {activeTab!.activeResultIndex === i ? 'bg-[#00d4ff] text-black' : 'text-[#a0a0a0] hover:text-[#e8e8e8]'}"
+        >
+          Result {i + 1}
+          {#if activeTab!.results[i].row_count > 0}
+            <span class="text-[9px] opacity-70 ml-0.5">({activeTab!.results[i].row_count})</span>
+          {/if}
+        </button>
+      {/each}
+    </div>
+  {/if}
 
   {#if activeTab?.status === "running" || updating}
     <div class="flex-1 flex items-center justify-center">
@@ -250,7 +271,7 @@
     </div>
     {#if editable}
       <div class="px-3 py-1 bg-[#141414] border-t border-[#2a2a2a] text-[10px] text-[#4a4a4a]">
-        Double-click any cell to edit · Primary key required
+        Double-click any cell to edit \u00b7 Primary key required
       </div>
     {/if}
   {:else}

@@ -150,6 +150,106 @@ pub async fn execute_sql(
     }
 }
 
+fn split_sql_statements(sql: &str) -> Vec<String> {
+    let mut statements = Vec::new();
+    let mut current = String::new();
+    let mut in_single_quote = false;
+    let mut in_double_quote = false;
+    let mut escape_next = false;
+
+    for ch in sql.chars() {
+        if escape_next {
+            current.push(ch);
+            escape_next = false;
+            continue;
+        }
+        if ch == '\\' {
+            current.push(ch);
+            escape_next = true;
+            continue;
+        }
+        if ch == '\'' && !in_double_quote {
+            in_single_quote = !in_single_quote;
+            current.push(ch);
+            continue;
+        }
+        if ch == '"' && !in_single_quote {
+            in_double_quote = !in_double_quote;
+            current.push(ch);
+            continue;
+        }
+        if ch == ';' && !in_single_quote && !in_double_quote {
+            let trimmed = current.trim();
+            if !trimmed.is_empty() {
+                statements.push(trimmed.to_string());
+            }
+            current = String::new();
+            continue;
+        }
+        current.push(ch);
+    }
+
+    let trimmed = current.trim();
+    if !trimmed.is_empty() {
+        statements.push(trimmed.to_string());
+    }
+
+    statements
+}
+
+#[tauri::command]
+pub async fn execute_multi_sql(
+    pools: State<'_, ConnectionPools>,
+    active_queries: State<'_, ActiveQueries>,
+    connection_id: String,
+    sql: String,
+    query_id: String,
+) -> Result<Vec<crate::db::query::QueryResult>, String> {
+    let statements = split_sql_statements(&sql);
+    if statements.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let driver = {
+        let pools = pools.0.lock().await;
+        match pools.get(&connection_id).ok_or("Not connected")? {
+            DriverWrapper::Postgres(pool) => DriverWrapper::Postgres(pool.clone()),
+            DriverWrapper::Mysql(pool) => DriverWrapper::Mysql(pool.clone()),
+            DriverWrapper::Sqlite(path) => DriverWrapper::Sqlite(path.clone()),
+        }
+    };
+
+    let handle = tokio::spawn(async move {
+        let mut results = Vec::with_capacity(statements.len());
+        for stmt in statements {
+            match driver.execute(&stmt).await {
+                Ok(result) => results.push(result),
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(results)
+    });
+
+    {
+        let mut aq = active_queries.0.lock().await;
+        aq.insert(query_id.clone(), handle.abort_handle());
+    }
+
+    let result = handle.await;
+
+    {
+        let mut aq = active_queries.0.lock().await;
+        aq.remove(&query_id);
+    }
+
+    match result {
+        Ok(Ok(r)) => Ok(r),
+        Ok(Err(e)) => Err(e),
+        Err(e) if e.is_cancelled() => Err("Query cancelled by user".to_string()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 #[tauri::command]
 pub async fn cancel_query(
     active_queries: State<'_, ActiveQueries>,

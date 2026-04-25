@@ -7,6 +7,7 @@
     connectionStore.connections.find((c) => c.id === connectionStore.activeConnectionId)
   );
   let activeTab = $derived(queryStore.tabs.find((t) => t.id === queryStore.activeTabId));
+  let activeResult = $derived(activeTab ? queryStore.getActiveResult(activeTab.id) : null);
 </script>
 
 <div class="h-6 bg-[#0c0c0c] border-t border-[#1e1e1e] flex items-center px-3 text-[11px] font-mono">
@@ -25,9 +26,9 @@
   <div class="flex-1"></div>
 
   <div class="flex items-center gap-3 text-[#a0a0a0]">
-    {#if activeTab?.result}
-      <span>{activeTab.result.row_count} rows</span>
-      <span>{activeTab.result.execution_time_ms}ms</span>
+    {#if activeResult}
+      <span>{activeResult.row_count} rows</span>
+      <span>{activeResult.execution_time_ms}ms</span>
     {/if}
     {#if activeTab?.status === "running"}
       <span class="text-[#00d4ff]">Executing...</span>

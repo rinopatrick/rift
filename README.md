@@ -65,7 +65,7 @@ Rift is the open source alternative that doesn't compromise.
 - [x] **Connection groups** — organize connections into folders
 - [x] **SSH tunnel** — connect through bastion hosts
 - [x] **Query profiler** — performance analysis with timing breakdown
-- [ ] **Multi-resultset support** — multiple SELECT results
+- [x] **Multi-resultset support** — multiple SELECT results in one query
 - [ ] **Database migration diff view** — compare schemas
 
 ---
@@ -156,7 +156,7 @@ npm run tauri build
 
 ### v0.5 — Performance & Polish
 - [x] Query profiler with bottleneck detection
-- [ ] Multi-resultset support
+- [x] Multi-resultset support
 - [ ] Database migration diff view
 - [ ] Connection timeout / SSL error human-readable messages
 

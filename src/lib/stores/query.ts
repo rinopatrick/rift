@@ -3,13 +3,13 @@ import type { QueryResult, QueryTab } from "../types";
 
 export function createQueryStore() {
   let tabs = $state<QueryTab[]>([
-    { id: "1", name: "Query 1", sql: "", result: null, status: "idle" },
+    { id: "1", name: "Query 1", sql: "", results: [], activeResultIndex: 0, status: "idle" },
   ]);
   let activeTabId = $state<string>("1");
 
   function addTab() {
     const id = crypto.randomUUID();
-    tabs = [...tabs, { id, name: `Query ${tabs.length + 1}`, sql: "", result: null, status: "idle" }];
+    tabs = [...tabs, { id, name: `Query ${tabs.length + 1}`, sql: "", results: [], activeResultIndex: 0, status: "idle" }];
     activeTabId = id;
   }
 
@@ -32,17 +32,17 @@ export function createQueryStore() {
     const queryId = crypto.randomUUID();
 
     tabs = tabs.map((t) =>
-      t.id === tabId ? { ...t, status: "running" as const, result: null, error: undefined, queryId } : t
+      t.id === tabId ? { ...t, status: "running" as const, results: [], activeResultIndex: 0, error: undefined, queryId } : t
     );
 
     try {
-      const result = await invoke<QueryResult>("execute_sql", {
+      const results = await invoke<QueryResult[]>("execute_multi_sql", {
         connectionId,
         sql: tab.sql,
         queryId,
       });
       tabs = tabs.map((t) =>
-        t.id === tabId ? { ...t, status: "idle" as const, result, queryId: undefined } : t
+        t.id === tabId ? { ...t, status: "idle" as const, results, queryId: undefined } : t
       );
       // Save to history
       await invoke("save_query_history", { connectionId, query: tab.sql });
@@ -97,6 +97,16 @@ export function createQueryStore() {
     tabs = tabs.map((t) => t.id === tabId ? { ...t, profileError: error } : t);
   }
 
+  function setActiveResultIndex(tabId: string, index: number) {
+    tabs = tabs.map((t) => t.id === tabId ? { ...t, activeResultIndex: index } : t);
+  }
+
+  function getActiveResult(tabId: string): QueryResult | null {
+    const tab = tabs.find((t) => t.id === tabId);
+    if (!tab || tab.results.length === 0) return null;
+    return tab.results[tab.activeResultIndex] ?? tab.results[0] ?? null;
+  }
+
   return {
     get tabs() { return tabs; },
     get activeTabId() { return activeTabId; },
@@ -112,6 +122,8 @@ export function createQueryStore() {
     setProfileLoading,
     setProfileData,
     setProfileError,
+    setActiveResultIndex,
+    getActiveResult,
   };
 }
 

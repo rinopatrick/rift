@@ -68,7 +68,8 @@ export interface QueryTab {
   id: string;
   name: string;
   sql: string;
-  result: QueryResult | null;
+  results: QueryResult[];
+  activeResultIndex: number;
   status: "idle" | "running" | "error" | "cancelled";
   error?: string;
   queryId?: string;

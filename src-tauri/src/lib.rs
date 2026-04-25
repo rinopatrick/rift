@@ -29,6 +29,7 @@ pub fn run() {
             commands::delete_connection,
             commands::connect_to_database,
             commands::execute_sql,
+            commands::execute_multi_sql,
             commands::cancel_query,
             commands::get_schema,
             commands::save_query_history,
