@@ -2,7 +2,8 @@ use tauri::State;
 use crate::AppState;
 use crate::db::connection::{ConnectionConfig, ConnectionInfo};
 use crate::db::driver::DriverWrapper;
-use crate::db::pool::create_pool;
+use crate::db::pool::{create_pool, create_mysql_pool};
+use mysql_async::prelude::Queryable;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex as AsyncMutex;
@@ -34,6 +35,11 @@ pub struct ImportResult {
 pub async fn test_connection(config: ConnectionConfig) -> Result<bool, String> {
     if config.driver == "sqlite" {
         let _ = rusqlite::Connection::open(&config.file_path).map_err(|e| e.to_string())?;
+        Ok(true)
+    } else if config.driver == "mysql" {
+        let pool = create_mysql_pool(&config).map_err(|e| e.to_string())?;
+        let mut conn = pool.get_conn().await.map_err(|e| e.to_string())?;
+        let _ : Vec<mysql_async::Row> = conn.query("SELECT 1").await.map_err(|e| e.to_string())?;
         Ok(true)
     } else {
         let pool = create_pool(&config).map_err(|e| e.to_string())?;
@@ -76,6 +82,11 @@ pub async fn connect_to_database(
 
     let driver = if config.driver == "sqlite" {
         DriverWrapper::Sqlite(config.file_path.clone())
+    } else if config.driver == "mysql" {
+        let pool = create_mysql_pool(&config).map_err(|e| e.to_string())?;
+        let mut conn = pool.get_conn().await.map_err(|e| e.to_string())?;
+        let _ : Vec<mysql_async::Row> = conn.query("SELECT 1").await.map_err(|e| e.to_string())?;
+        DriverWrapper::Mysql(pool)
     } else {
         let pool = create_pool(&config).map_err(|e| e.to_string())?;
         let client = pool.get().await.map_err(|e| e.to_string())?;
@@ -101,6 +112,7 @@ pub async fn execute_sql(
         let pools = pools.0.lock().await;
         match pools.get(&connection_id).ok_or("Not connected")? {
             DriverWrapper::Postgres(pool) => DriverWrapper::Postgres(pool.clone()),
+            DriverWrapper::Mysql(pool) => DriverWrapper::Mysql(pool.clone()),
             DriverWrapper::Sqlite(path) => DriverWrapper::Sqlite(path.clone()),
         }
     };

@@ -20,7 +20,10 @@
         onclick={() => connectionStore.connect(conn.id)}
         class="w-full text-left px-3 py-2 rounded-md text-[12px] border transition-colors {connectionStore.activeConnectionId === conn.id ? 'bg-[#262626] border-l-[3px] border-l-[#00d4ff] border-[#262626]' : 'bg-[#141414] border-[#2a2a2a] hover:bg-[#1f1f1f] hover:border-[#333333]' }"
       >
-        <div class="font-medium text-[#e8e8e8]">{conn.name}</div>
+        <div class="flex items-center justify-between">
+          <div class="font-medium text-[#e8e8e8]">{conn.name}</div>
+          <span class="text-[9px] px-1 py-0.5 rounded bg-[#1a1a1a] text-[#6b6b6b] uppercase">{conn.driver}</span>
+        </div>
         <div class="text-[#6b6b6b]">{conn.host}:{conn.port}/{conn.database}</div>
       </button>
     {:else}

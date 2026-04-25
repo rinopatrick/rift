@@ -3,7 +3,7 @@
   import { connectionStore } from "../stores/connection";
   import type { ConnectionConfig } from "../types";
 
-  let driver = $state<"postgres" | "sqlite">("postgres");
+  let driver = $state<"postgres" | "mysql" | "sqlite">("postgres");
   let name = $state("");
   let host = $state("localhost");
   let port = $state(5432);
@@ -13,6 +13,21 @@
   let filePath = $state("");
   let testing = $state(false);
   let testResult = $state<boolean | null>(null);
+
+  // Update defaults when driver changes
+  $effect(() => {
+    if (driver === "postgres") {
+      port = 5432;
+      database = "postgres";
+      username = "postgres";
+    } else if (driver === "mysql") {
+      port = 3306;
+      database = "";
+      username = "root";
+    } else if (driver === "sqlite") {
+      filePath = "";
+    }
+  });
 
   async function handleTest() {
     testing = true;
@@ -67,6 +82,11 @@
           onclick={() => driver = "postgres"}
           class="flex-1 py-1.5 text-[11px] font-medium rounded border {driver === 'postgres' ? 'bg-[#00d4ff]/10 border-[#00d4ff] text-[#00d4ff]' : 'bg-[#1a1a1a] border-[#2a2a2a] text-[#a0a0a0]'}">
           PostgreSQL
+        </button>
+        <button
+          onclick={() => driver = "mysql"}
+          class="flex-1 py-1.5 text-[11px] font-medium rounded border {driver === 'mysql' ? 'bg-[#00d4ff]/10 border-[#00d4ff] text-[#00d4ff]' : 'bg-[#1a1a1a] border-[#2a2a2a] text-[#a0a0a0]'}">
+          MySQL
         </button>
         <button
           onclick={() => driver = "sqlite"}
