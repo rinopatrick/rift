@@ -63,8 +63,8 @@ Rift is the open source alternative that doesn't compromise.
 - [x] **Settings panel** — font size, theme, keybinding cheat sheet
 - [x] **MySQL support** — full MySQL driver with schema exploration
 - [x] **Connection groups** — organize connections into folders
-- [ ] **SSH tunnel** — connect through bastion hosts
-- [ ] **Query profiler** — performance analysis
+- [x] **SSH tunnel** — connect through bastion hosts
+- [x] **Query profiler** — performance analysis with timing breakdown
 - [ ] **Multi-resultset support** — multiple SELECT results
 - [ ] **Database migration diff view** — compare schemas
 
@@ -145,14 +145,20 @@ npm run tauri build
 - [x] Settings panel
 - [x] Inline cell editing
 - [x] Connection groups / folders
-- [ ] Query performance profiler
+- [x] Query performance profiler
 - [ ] Multi-resultset support
 
 ### v0.4 — Multi-Database
 - [x] SQLite driver
 - [x] MySQL driver
+- [x] SSH tunnel support
 - [ ] Database migration diff view
-- [ ] SSH tunnel support
+
+### v0.5 — Performance & Polish
+- [x] Query profiler with bottleneck detection
+- [ ] Multi-resultset support
+- [ ] Database migration diff view
+- [ ] Connection timeout / SSL error human-readable messages
 
 ### Future
 - [ ] Collaboration / shared connections

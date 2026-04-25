@@ -459,6 +459,32 @@ pub async fn explain_query(
 }
 
 #[tauri::command]
+pub async fn profile_query(
+    pools: State<'_, ConnectionPools>,
+    connection_id: String,
+    sql: String,
+) -> Result<serde_json::Value, String> {
+    let pools = pools.0.lock().await;
+    let driver = pools.get(&connection_id).ok_or("Not connected")?;
+
+    match driver {
+        DriverWrapper::Postgres(_) => {},
+        _ => return Err("Query profiler is only available for PostgreSQL".to_string()),
+    }
+
+    let profile_sql = format!("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) {}", sql);
+    let result = driver.execute(&profile_sql).await?;
+
+    if result.rows.is_empty() || result.rows[0].is_empty() {
+        return Err("Empty profile result".to_string());
+    }
+
+    let json_str = result.rows[0][0].as_ref().ok_or("Empty profile result")?;
+    let parsed: serde_json::Value = serde_json::from_str(json_str).map_err(|e| e.to_string())?;
+    Ok(parsed)
+}
+
+#[tauri::command]
 pub async fn get_foreign_keys(
     pools: State<'_, ConnectionPools>,
     connection_id: String,

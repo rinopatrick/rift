@@ -5,6 +5,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import ChartPanel from "./ChartPanel.svelte";
   import ExplainPanel from "./ExplainPanel.svelte";
+  import ProfilePanel from "./ProfilePanel.svelte";
 
   let activeTab = $derived(queryStore.tabs.find((t) => t.id === queryStore.activeTabId));
   let result = $derived(activeTab?.result);
@@ -30,11 +31,13 @@
   let editValue = $state("");
   let updating = $state(false);
   let showChart = $state(false);
+  let resultView = $state<"grid" | "chart" | "explain" | "profile">("grid");
 
-  // Reset chart view when active tab or result changes
+  // Reset view when active tab or result changes
   $effect(() => {
     if (activeTab?.id) {
       showChart = false;
+      resultView = "grid";
     }
   });
 
@@ -160,8 +163,14 @@
     <span class="text-[11px] text-[#6b6b6b] uppercase tracking-wider">Results</span>
     <div class="flex items-center gap-2">
       {#if result}
-        <span class="text-[11px] text-[#a0a0a0] font-mono mr-2">{result.row_count} rows · {result.execution_time_ms}ms</span>
-        <button onclick={() => showChart = !showChart} class="text-[10px] font-medium px-2 py-0.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded text-[#a0a0a0] hover:text-[#e8e8e8] hover:border-[#333333]">{showChart ? "Grid" : "Chart"}</button>
+        <span class="text-[11px] text-[#a0a0a0] font-mono mr-2">{result.row_count} rows \u00b7 {result.execution_time_ms}ms</span>
+      {/if}
+      {#if activeTab}
+        <button onclick={() => resultView = resultView === "chart" ? "grid" : "chart"} class="text-[10px] font-medium px-2 py-0.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded {resultView === 'chart' ? 'text-[#00d4ff] border-[#00d4ff]' : 'text-[#a0a0a0] hover:text-[#e8e8e8] hover:border-[#333333]'}">{resultView === "chart" ? "Grid" : "Chart"}</button>
+        <button onclick={() => resultView = "explain"} class="text-[10px] font-medium px-2 py-0.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded {resultView === 'explain' ? 'text-[#00d4ff] border-[#00d4ff]' : 'text-[#a0a0a0] hover:text-[#e8e8e8] hover:border-[#333333]'}">Explain</button>
+        <button onclick={() => resultView = "profile"} class="text-[10px] font-medium px-2 py-0.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded {resultView === 'profile' ? 'text-[#00d4ff] border-[#00d4ff]' : 'text-[#a0a0a0] hover:text-[#e8e8e8] hover:border-[#333333]'}">Profile</button>
+      {/if}
+      {#if result}
         <button onclick={exportCSV} class="text-[10px] font-medium px-2 py-0.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded text-[#a0a0a0] hover:text-[#e8e8e8] hover:border-[#333333]">CSV</button>
         <button onclick={exportJSON} class="text-[10px] font-medium px-2 py-0.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded text-[#a0a0a0] hover:text-[#e8e8e8] hover:border-[#333333]">JSON</button>
       {/if}
@@ -183,10 +192,12 @@
     <div class="flex-1 flex items-center justify-center p-4">
       <div class="text-[#a0a0a0] text-[12px] font-mono">Query cancelled by user</div>
     </div>
-  {:else if showChart && result && result.columns.length > 0}
+  {:else if resultView === "chart" && result && result.columns.length > 0}
     <ChartPanel {result} />
-  {:else if activeTab?.explainData}
+  {:else if resultView === "explain" && activeTab?.explainData}
     <ExplainPanel explainData={activeTab.explainData} />
+  {:else if resultView === "profile" && activeTab?.profileData}
+    <ProfilePanel profileData={activeTab.profileData} />
   {:else if result && result.columns.length > 0}
     {@const tableName = parseTableName(activeTab?.sql ?? "")}
     {@const editable = tableName && getPrimaryKey(tableName) !== null}

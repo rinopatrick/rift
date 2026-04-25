@@ -85,6 +85,18 @@ export function createQueryStore() {
     tabs = tabs.map((t) => t.id === tabId ? { ...t, explainError: error } : t);
   }
 
+  function setProfileLoading(tabId: string, loading: boolean) {
+    tabs = tabs.map((t) => t.id === tabId ? { ...t, profileLoading: loading } : t);
+  }
+
+  function setProfileData(tabId: string, data: any) {
+    tabs = tabs.map((t) => t.id === tabId ? { ...t, profileData: data, profileError: undefined } : t);
+  }
+
+  function setProfileError(tabId: string, error: string) {
+    tabs = tabs.map((t) => t.id === tabId ? { ...t, profileError: error } : t);
+  }
+
   return {
     get tabs() { return tabs; },
     get activeTabId() { return activeTabId; },
@@ -97,6 +109,9 @@ export function createQueryStore() {
     setExplainLoading,
     setExplainData,
     setExplainError,
+    setProfileLoading,
+    setProfileData,
+    setProfileError,
   };
 }
 

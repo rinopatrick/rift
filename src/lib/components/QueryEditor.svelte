@@ -76,6 +76,22 @@
     }
   }
 
+  async function handleProfile() {
+    if (!connectionStore.activeConnectionId || !activeTab) return;
+    try {
+      queryStore.setProfileLoading(activeTab.id, true);
+      const data = await invoke("profile_query", {
+        connectionId: connectionStore.activeConnectionId,
+        sql: activeTab.sql,
+      });
+      queryStore.setProfileData(activeTab.id, data);
+    } catch (err) {
+      queryStore.setProfileError(activeTab.id, String(err));
+    } finally {
+      queryStore.setProfileLoading(activeTab.id, false);
+    }
+  }
+
   function handleChange(value: string) {
     if (activeTab) {
       queryStore.updateSql(activeTab.id, value);
@@ -112,6 +128,14 @@
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
           Explain
+        </button>
+        <button
+          onclick={handleProfile}
+          disabled={!connectionStore.activeConnectionId}
+          class="flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium bg-[#1a1a1a] border border-[#2a2a2a] text-[#a0a0a0] rounded hover:text-[#e8e8e8] hover:border-[#333333] disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6"/><path d="M6 20V10"/><path d="M18 20V4"/></svg>
+          Profile
         </button>
       {/if}
     </div>

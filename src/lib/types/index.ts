@@ -76,6 +76,9 @@ export interface QueryTab {
   explainData?: any;
   explainError?: string;
   explainLoading?: boolean;
+  profileData?: any;
+  profileError?: string;
+  profileLoading?: boolean;
 }
 export interface QueryHistoryItem {
   id: string;
