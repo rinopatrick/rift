@@ -66,6 +66,14 @@ impl AppState {
             [],
         )?;
 
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )",
+            [],
+        )?;
+
         Ok(Self { db })
     }
 
@@ -189,5 +197,27 @@ impl AppState {
     pub fn delete_bookmark(&self, id: &str) -> SqlResult<()> {
         self.db.execute("DELETE FROM query_bookmarks WHERE id = ?1", [id])?;
         Ok(())
+    }
+
+    pub fn save_setting(&self, key: &str, value: &str) -> SqlResult<()> {
+        self.db.execute(
+            "INSERT OR REPLACE INTO app_settings (key, value) VALUES (?1, ?2)",
+            [key, value],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_setting(&self, key: &str) -> SqlResult<Option<String>> {
+        let mut stmt = self.db.prepare("SELECT value FROM app_settings WHERE key = ?1")?;
+        let mut rows = stmt.query_map([key], |row| row.get(0))?;
+        rows.next().transpose()
+    }
+
+    pub fn get_all_settings(&self) -> SqlResult<Vec<(String, String)>> {
+        let mut stmt = self.db.prepare("SELECT key, value FROM app_settings")?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        })?;
+        rows.collect()
     }
 }

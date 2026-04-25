@@ -409,3 +409,15 @@ fn detect_type(val: &str) -> &'static str {
     }
     "TEXT"
 }
+
+#[tauri::command]
+pub fn save_setting(state: State<AppState>, key: String, value: String) -> Result<(), String> {
+    let state = state.0.lock().map_err(|e| e.to_string())?;
+    state.save_setting(&key, &value).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_settings(state: State<AppState>) -> Result<Vec<(String, String)>, String> {
+    let state = state.0.lock().map_err(|e| e.to_string())?;
+    state.get_all_settings().map_err(|e| e.to_string())
+}

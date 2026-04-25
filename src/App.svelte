@@ -5,6 +5,11 @@
   import QueryEditor from "./lib/components/QueryEditor.svelte";
   import ResultGrid from "./lib/components/ResultGrid.svelte";
   import StatusBar from "./lib/components/StatusBar.svelte";
+  import { settingsStore } from "./lib/stores/settings";
+
+  $effect(() => {
+    settingsStore.load();
+  });
 </script>
 
 <div class="flex h-screen w-screen bg-[#0c0c0c] overflow-hidden">
