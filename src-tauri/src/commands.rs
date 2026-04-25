@@ -3,6 +3,7 @@ use crate::AppState;
 use crate::db::connection::{ConnectionConfig, ConnectionInfo};
 use crate::db::driver::DriverWrapper;
 use crate::db::pool::{create_pool, create_mysql_pool};
+use crate::db::ssh_tunnel::SshTunnel;
 use mysql_async::prelude::Queryable;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -11,6 +12,14 @@ use tokio::sync::Mutex as AsyncMutex;
 pub struct ConnectionPools(pub Arc<AsyncMutex<HashMap<String, DriverWrapper>>>);
 
 impl ConnectionPools {
+    pub fn new() -> Self {
+        Self(Arc::new(AsyncMutex::new(HashMap::new())))
+    }
+}
+
+pub struct SshTunnels(pub Arc<AsyncMutex<HashMap<String, SshTunnel>>>);
+
+impl SshTunnels {
     pub fn new() -> Self {
         Self(Arc::new(AsyncMutex::new(HashMap::new())))
     }

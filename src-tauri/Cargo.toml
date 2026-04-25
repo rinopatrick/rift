@@ -26,6 +26,7 @@ time = { version = "0.3", features = ["serde", "formatting", "parsing"] }
 tauri-plugin-dialog = "2"
 csv = "1.3"
 mysql_async = "0.34"
+russh = "0.50"
 
 [features]
 default = ["custom-protocol"]

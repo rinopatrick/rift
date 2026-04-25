@@ -12,6 +12,13 @@
   let password = $state("");
   let filePath = $state("");
   let folder = $state("");
+  let useSshTunnel = $state(false);
+  let sshHost = $state("");
+  let sshPort = $state(22);
+  let sshUsername = $state("");
+  let sshPassword = $state("");
+  let sshPrivateKey = $state("");
+  let sshPassphrase = $state("");
   let testing = $state(false);
   let testResult = $state<boolean | null>(null);
 
@@ -36,7 +43,11 @@
     try {
       const config: ConnectionConfig = {
         id: "", name, driver, host, port, database, username, password,
-        ssl_mode: "prefer", file_path: filePath, folder, created_at: ""
+        ssl_mode: "prefer", file_path: filePath, folder,
+        use_ssh_tunnel: useSshTunnel, ssh_host: sshHost, ssh_port: sshPort,
+        ssh_username: sshUsername, ssh_password: sshPassword,
+        ssh_private_key: sshPrivateKey, ssh_passphrase: sshPassphrase,
+        created_at: ""
       };
       testResult = await connectionStore.testConnection(config);
     } finally {
@@ -47,7 +58,11 @@
   async function handleSave() {
     const config: ConnectionConfig = {
       id: "", name, driver, host, port, database, username, password,
-      ssl_mode: "prefer", file_path: filePath, folder, created_at: ""
+      ssl_mode: "prefer", file_path: filePath, folder,
+      use_ssh_tunnel: useSshTunnel, ssh_host: sshHost, ssh_port: sshPort,
+      ssh_username: sshUsername, ssh_password: sshPassword,
+      ssh_private_key: sshPrivateKey, ssh_passphrase: sshPassphrase,
+      created_at: ""
     };
     await connectionStore.saveConnection(config);
     uiStore.showConnectionModal = false;
@@ -64,6 +79,13 @@
     password = "";
     filePath = "";
     folder = "";
+    useSshTunnel = false;
+    sshHost = "";
+    sshPort = 22;
+    sshUsername = "";
+    sshPassword = "";
+    sshPrivateKey = "";
+    sshPassphrase = "";
     testResult = null;
   }
 </script>
@@ -137,6 +159,46 @@
             <label for="conn-pass" class="block text-[11px] font-medium text-[#a0a0a0] mb-1">Password</label>
             <input id="conn-pass" type="password" bind:value={password} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" />
           </div>
+        </div>
+      {/if}
+
+      {#if driver !== "sqlite"}
+        <!-- SSH Tunnel -->
+        <div class="pt-2 border-t border-[#2a2a2a]">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" bind:checked={useSshTunnel} class="w-3.5 h-3.5 rounded border-[#2a2a2a] bg-[#1a1a1a] text-[#00d4ff] focus:ring-[#00d4ff]" />
+            <span class="text-[11px] font-medium text-[#a0a0a0]">Use SSH Tunnel</span>
+          </label>
+          {#if useSshTunnel}
+            <div class="mt-2 space-y-2 pl-5 border-l-2 border-[#2a2a2a]">
+              <div class="grid grid-cols-3 gap-2">
+                <div class="col-span-2">
+                  <label for="ssh-host" class="block text-[11px] font-medium text-[#a0a0a0] mb-1">SSH Host</label>
+                  <input id="ssh-host" type="text" bind:value={sshHost} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" placeholder="bastion.example.com" />
+                </div>
+                <div>
+                  <label for="ssh-port" class="block text-[11px] font-medium text-[#a0a0a0] mb-1">SSH Port</label>
+                  <input id="ssh-port" type="number" bind:value={sshPort} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" />
+                </div>
+              </div>
+              <div>
+                <label for="ssh-user" class="block text-[11px] font-medium text-[#a0a0a0] mb-1">SSH Username</label>
+                <input id="ssh-user" type="text" bind:value={sshUsername} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" />
+              </div>
+              <div>
+                <label for="ssh-pass" class="block text-[11px] font-medium text-[#a0a0a0] mb-1">SSH Password (or use key below)</label>
+                <input id="ssh-pass" type="password" bind:value={sshPassword} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" />
+              </div>
+              <div>
+                <label for="ssh-key" class="block text-[11px] font-medium text-[#a0a0a0] mb-1">Private Key Path</label>
+                <input id="ssh-key" type="text" bind:value={sshPrivateKey} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none font-mono" placeholder="~/.ssh/id_rsa" />
+              </div>
+              <div>
+                <label for="ssh-phrase" class="block text-[11px] font-medium text-[#a0a0a0] mb-1">Key Passphrase (optional)</label>
+                <input id="ssh-phrase" type="password" bind:value={sshPassphrase} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" />
+              </div>
+            </div>
+          {/if}
         </div>
       {/if}
 

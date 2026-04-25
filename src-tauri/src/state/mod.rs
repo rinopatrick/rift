@@ -41,6 +41,13 @@ impl AppState {
                 ssl_mode TEXT NOT NULL,
                 file_path TEXT NOT NULL DEFAULT '',
                 folder TEXT NOT NULL DEFAULT '',
+                use_ssh_tunnel INTEGER NOT NULL DEFAULT 0,
+                ssh_host TEXT NOT NULL DEFAULT '',
+                ssh_port INTEGER NOT NULL DEFAULT 22,
+                ssh_username TEXT NOT NULL DEFAULT '',
+                ssh_password TEXT NOT NULL DEFAULT '',
+                ssh_private_key TEXT NOT NULL DEFAULT '',
+                ssh_passphrase TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL
             )",
             [],
@@ -48,6 +55,15 @@ impl AppState {
 
         // Migration: add folder column if it doesn't exist (ignore error)
         let _ = db.execute("ALTER TABLE connections ADD COLUMN folder TEXT NOT NULL DEFAULT ''", []);
+
+        // Migration: add SSH tunnel columns (ignore errors if already exist)
+        let _ = db.execute("ALTER TABLE connections ADD COLUMN use_ssh_tunnel INTEGER NOT NULL DEFAULT 0", []);
+        let _ = db.execute("ALTER TABLE connections ADD COLUMN ssh_host TEXT NOT NULL DEFAULT ''", []);
+        let _ = db.execute("ALTER TABLE connections ADD COLUMN ssh_port INTEGER NOT NULL DEFAULT 22", []);
+        let _ = db.execute("ALTER TABLE connections ADD COLUMN ssh_username TEXT NOT NULL DEFAULT ''", []);
+        let _ = db.execute("ALTER TABLE connections ADD COLUMN ssh_password TEXT NOT NULL DEFAULT ''", []);
+        let _ = db.execute("ALTER TABLE connections ADD COLUMN ssh_private_key TEXT NOT NULL DEFAULT ''", []);
+        let _ = db.execute("ALTER TABLE connections ADD COLUMN ssh_passphrase TEXT NOT NULL DEFAULT ''", []);
 
         db.execute(
             "CREATE TABLE IF NOT EXISTS query_history (
@@ -83,11 +99,14 @@ impl AppState {
 
     pub fn save_connection(&self, config: &ConnectionConfig) -> SqlResult<()> {
         self.db.execute(
-            "INSERT OR REPLACE INTO connections (id, name, driver, host, port, database, username, password, ssl_mode, file_path, folder, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            "INSERT OR REPLACE INTO connections (id, name, driver, host, port, database, username, password, ssl_mode, file_path, folder, use_ssh_tunnel, ssh_host, ssh_port, ssh_username, ssh_password, ssh_private_key, ssh_passphrase, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
             [
                 &config.id, &config.name, &config.driver, &config.host, &config.port.to_string(),
-                &config.database, &config.username, &config.password, &config.ssl_mode, &config.file_path, &config.folder, &config.created_at,
+                &config.database, &config.username, &config.password, &config.ssl_mode, &config.file_path,
+                &config.folder, &(config.use_ssh_tunnel as i32).to_string(), &config.ssh_host,
+                &config.ssh_port.to_string(), &config.ssh_username, &config.ssh_password,
+                &config.ssh_private_key, &config.ssh_passphrase, &config.created_at,
             ],
         )?;
         Ok(())
@@ -95,7 +114,7 @@ impl AppState {
 
     pub fn get_connections(&self) -> SqlResult<Vec<ConnectionInfo>> {
         let mut stmt = self.db.prepare(
-            "SELECT id, name, driver, host, port, database, username, ssl_mode, file_path, folder, created_at FROM connections ORDER BY folder, created_at DESC"
+            "SELECT id, name, driver, host, port, database, username, ssl_mode, file_path, folder, use_ssh_tunnel, ssh_host, ssh_port, ssh_username, created_at FROM connections ORDER BY folder, created_at DESC"
         )?;
 
         let rows = stmt.query_map([], |row| {
@@ -110,7 +129,11 @@ impl AppState {
                 ssl_mode: row.get(7)?,
                 file_path: row.get(8)?,
                 folder: row.get(9)?,
-                created_at: row.get(10)?,
+                use_ssh_tunnel: row.get::<_, i32>(10)? != 0,
+                ssh_host: row.get(11)?,
+                ssh_port: row.get(12)?,
+                ssh_username: row.get(13)?,
+                created_at: row.get(14)?,
             })
         })?;
 
@@ -124,7 +147,7 @@ impl AppState {
 
     pub fn get_connection_config(&self, id: &str) -> SqlResult<Option<ConnectionConfig>> {
         let mut stmt = self.db.prepare(
-            "SELECT id, name, driver, host, port, database, username, password, ssl_mode, file_path, folder, created_at FROM connections WHERE id = ?1"
+            "SELECT id, name, driver, host, port, database, username, password, ssl_mode, file_path, folder, use_ssh_tunnel, ssh_host, ssh_port, ssh_username, ssh_password, ssh_private_key, ssh_passphrase, created_at FROM connections WHERE id = ?1"
         )?;
 
         let mut rows = stmt.query_map([id], |row| {
@@ -140,7 +163,14 @@ impl AppState {
                 ssl_mode: row.get(8)?,
                 file_path: row.get(9)?,
                 folder: row.get(10)?,
-                created_at: row.get(11)?,
+                use_ssh_tunnel: row.get::<_, i32>(11)? != 0,
+                ssh_host: row.get(12)?,
+                ssh_port: row.get(13)?,
+                ssh_username: row.get(14)?,
+                ssh_password: row.get(15)?,
+                ssh_private_key: row.get(16)?,
+                ssh_passphrase: row.get(17)?,
+                created_at: row.get(18)?,
             })
         })?;
 

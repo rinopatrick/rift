@@ -13,6 +13,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .manage(commands::ConnectionPools::new())
+        .manage(commands::SshTunnels::new())
         .manage(commands::ActiveQueries::new())
         .setup(|app| {
             let app_dir = app.path().app_data_dir().expect("failed to get app data dir");

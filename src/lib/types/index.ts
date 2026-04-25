@@ -10,6 +10,13 @@ export interface ConnectionConfig {
   ssl_mode: string;
   file_path: string;
   folder: string;
+  use_ssh_tunnel: boolean;
+  ssh_host: string;
+  ssh_port: number;
+  ssh_username: string;
+  ssh_password: string;
+  ssh_private_key: string;
+  ssh_passphrase: string;
   created_at: string;
 }
 
@@ -24,6 +31,10 @@ export interface ConnectionInfo {
   ssl_mode: string;
   file_path: string;
   folder: string;
+  use_ssh_tunnel: boolean;
+  ssh_host: string;
+  ssh_port: number;
+  ssh_username: string;
   created_at: string;
 }
 

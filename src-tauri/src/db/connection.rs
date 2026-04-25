@@ -14,6 +14,13 @@ pub struct ConnectionConfig {
     pub ssl_mode: String,
     pub file_path: String,
     pub folder: String,
+    pub use_ssh_tunnel: bool,
+    pub ssh_host: String,
+    pub ssh_port: u16,
+    pub ssh_username: String,
+    pub ssh_password: String,
+    pub ssh_private_key: String,
+    pub ssh_passphrase: String,
     pub created_at: String,
 }
 
@@ -31,6 +38,13 @@ impl ConnectionConfig {
             ssl_mode: "prefer".to_string(),
             file_path: "".to_string(),
             folder: "".to_string(),
+            use_ssh_tunnel: false,
+            ssh_host: "".to_string(),
+            ssh_port: 22,
+            ssh_username: "".to_string(),
+            ssh_password: "".to_string(),
+            ssh_private_key: "".to_string(),
+            ssh_passphrase: "".to_string(),
             created_at: time::OffsetDateTime::now_utc().to_string(),
         }
     }
@@ -48,6 +62,10 @@ pub struct ConnectionInfo {
     pub ssl_mode: String,
     pub file_path: String,
     pub folder: String,
+    pub use_ssh_tunnel: bool,
+    pub ssh_host: String,
+    pub ssh_port: u16,
+    pub ssh_username: String,
     pub created_at: String,
 }
 
@@ -64,6 +82,10 @@ impl From<ConnectionConfig> for ConnectionInfo {
             ssl_mode: c.ssl_mode,
             file_path: c.file_path,
             folder: c.folder,
+            use_ssh_tunnel: c.use_ssh_tunnel,
+            ssh_host: c.ssh_host,
+            ssh_port: c.ssh_port,
+            ssh_username: c.ssh_username,
             created_at: c.created_at,
         }
     }
