@@ -438,6 +438,16 @@ pub async fn explain_query(
 }
 
 #[tauri::command]
+pub async fn get_foreign_keys(
+    pools: State<'_, ConnectionPools>,
+    connection_id: String,
+) -> Result<Vec<crate::schema::ForeignKeyInfo>, String> {
+    let pools = pools.0.lock().await;
+    let driver = pools.get(&connection_id).ok_or("Not connected")?;
+    driver.get_foreign_keys().await
+}
+
+#[tauri::command]
 pub fn save_setting(state: State<AppState>, key: String, value: String) -> Result<(), String> {
     let state = state.0.lock().map_err(|e| e.to_string())?;
     state.save_setting(&key, &value).map_err(|e| e.to_string())

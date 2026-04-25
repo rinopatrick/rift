@@ -102,6 +102,18 @@ impl DriverWrapper {
         }
     }
 
+    pub async fn get_foreign_keys(&self) -> Result<Vec<crate::schema::ForeignKeyInfo>, String> {
+        match self {
+            DriverWrapper::Postgres(pool) => {
+                let client = pool.get().await.map_err(|e| e.to_string())?;
+                crate::schema::get_foreign_keys(&client).await.map_err(|e| e.to_string())
+            }
+            DriverWrapper::Sqlite(_) => {
+                Err("Foreign key visualization not yet supported for SQLite".to_string())
+            }
+        }
+    }
+
     pub async fn update_cell(
         &self,
         schema: &str,

@@ -23,6 +23,51 @@ pub struct ColumnInfo {
     pub is_primary_key: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ForeignKeyInfo {
+    pub constraint_name: String,
+    pub table_schema: String,
+    pub table_name: String,
+    pub column_name: String,
+    pub foreign_table_schema: String,
+    pub foreign_table_name: String,
+    pub foreign_column_name: String,
+}
+
+pub async fn get_foreign_keys(client: &Client) -> Result<Vec<ForeignKeyInfo>, tokio_postgres::Error> {
+    let rows = client
+        .query(
+            "SELECT
+                tc.constraint_name,
+                tc.table_schema,
+                tc.table_name,
+                kcu.column_name,
+                ccu.table_schema AS foreign_table_schema,
+                ccu.table_name AS foreign_table_name,
+                ccu.column_name AS foreign_column_name
+            FROM information_schema.table_constraints AS tc
+            JOIN information_schema.key_column_usage AS kcu
+                ON tc.constraint_name = kcu.constraint_name
+                AND tc.table_schema = kcu.table_schema
+            JOIN information_schema.constraint_column_usage AS ccu
+                ON ccu.constraint_name = tc.constraint_name
+            WHERE tc.constraint_type = 'FOREIGN KEY'
+            ORDER BY tc.table_schema, tc.table_name",
+            &[],
+        )
+        .await?;
+
+    Ok(rows.iter().map(|r| ForeignKeyInfo {
+        constraint_name: r.get(0),
+        table_schema: r.get(1),
+        table_name: r.get(2),
+        column_name: r.get(3),
+        foreign_table_schema: r.get(4),
+        foreign_table_name: r.get(5),
+        foreign_column_name: r.get(6),
+    }).collect())
+}
+
 pub async fn get_schemas(client: &Client) -> Result<Vec<SchemaInfo>, tokio_postgres::Error> {
     let schema_rows = client
         .query(
