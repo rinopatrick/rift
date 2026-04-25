@@ -39,6 +39,7 @@ pub fn run() {
             commands::export_json,
             commands::import_csv,
             commands::update_cell,
+            commands::explain_query,
             commands::save_setting,
             commands::get_settings,
         ])

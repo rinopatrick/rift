@@ -4,6 +4,7 @@
   import { schemaStore } from "../stores/schema";
   import { invoke } from "@tauri-apps/api/core";
   import ChartPanel from "./ChartPanel.svelte";
+  import ExplainPanel from "./ExplainPanel.svelte";
 
   let activeTab = $derived(queryStore.tabs.find((t) => t.id === queryStore.activeTabId));
   let result = $derived(activeTab?.result);
@@ -184,6 +185,8 @@
     </div>
   {:else if showChart && result && result.columns.length > 0}
     <ChartPanel {result} />
+  {:else if activeTab?.explainData}
+    <ExplainPanel explainData={activeTab.explainData} />
   {:else if result && result.columns.length > 0}
     {@const tableName = parseTableName(activeTab?.sql ?? "")}
     {@const editable = tableName && getPrimaryKey(tableName) !== null}

@@ -411,6 +411,33 @@ fn detect_type(val: &str) -> &'static str {
 }
 
 #[tauri::command]
+pub async fn explain_query(
+    pools: State<'_, ConnectionPools>,
+    connection_id: String,
+    sql: String,
+) -> Result<serde_json::Value, String> {
+    let pools = pools.0.lock().await;
+    let driver = pools.get(&connection_id).ok_or("Not connected")?;
+
+    // Only PostgreSQL supports EXPLAIN (FORMAT JSON)
+    match driver {
+        DriverWrapper::Postgres(_) => {},
+        _ => return Err("EXPLAIN visualizer is only available for PostgreSQL".to_string()),
+    }
+
+    let explain_sql = format!("EXPLAIN (FORMAT JSON) {}", sql);
+    let result = driver.execute(&explain_sql).await?;
+
+    if result.rows.is_empty() || result.rows[0].is_empty() {
+        return Err("Empty EXPLAIN result".to_string());
+    }
+
+    let json_str = result.rows[0][0].as_ref().ok_or("Empty EXPLAIN result")?;
+    let parsed: serde_json::Value = serde_json::from_str(json_str).map_err(|e| e.to_string())?;
+    Ok(parsed)
+}
+
+#[tauri::command]
 pub fn save_setting(state: State<AppState>, key: String, value: String) -> Result<(), String> {
     let state = state.0.lock().map_err(|e| e.to_string())?;
     state.save_setting(&key, &value).map_err(|e| e.to_string())

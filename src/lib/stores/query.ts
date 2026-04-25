@@ -73,6 +73,18 @@ export function createQueryStore() {
     }
   }
 
+  function setExplainLoading(tabId: string, loading: boolean) {
+    tabs = tabs.map((t) => t.id === tabId ? { ...t, explainLoading: loading } : t);
+  }
+
+  function setExplainData(tabId: string, data: any) {
+    tabs = tabs.map((t) => t.id === tabId ? { ...t, explainData: data, explainError: undefined } : t);
+  }
+
+  function setExplainError(tabId: string, error: string) {
+    tabs = tabs.map((t) => t.id === tabId ? { ...t, explainError: error } : t);
+  }
+
   return {
     get tabs() { return tabs; },
     get activeTabId() { return activeTabId; },
@@ -82,6 +94,9 @@ export function createQueryStore() {
     updateSql,
     executeQuery,
     cancelQuery,
+    setExplainLoading,
+    setExplainData,
+    setExplainError,
   };
 }
 

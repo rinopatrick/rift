@@ -59,8 +59,11 @@ export interface QueryTab {
   status: "idle" | "running" | "error" | "cancelled";
   error?: string;
   queryId?: string;
+  viewMode?: "grid" | "chart";
+  explainData?: any;
+  explainError?: string;
+  explainLoading?: boolean;
 }
-
 export interface QueryHistoryItem {
   id: string;
   connection_id: string;
