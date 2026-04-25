@@ -61,10 +61,12 @@ Rift is the open source alternative that doesn't compromise.
 - [x] **EXPLAIN plan visualizer** — interactive tree diagram for PostgreSQL
 - [x] **ER Diagram** — auto-generated SVG diagram from schema
 - [x] **Settings panel** — font size, theme, keybinding cheat sheet
+- [x] **MySQL support** — full MySQL driver with schema exploration
+- [x] **Connection groups** — organize connections into folders
 - [ ] **SSH tunnel** — connect through bastion hosts
-- [ ] **MySQL & SQLite** — multi-database support (SQLite partial)
-- [ ] **Connection pooling** — persistent background pools
 - [ ] **Query profiler** — performance analysis
+- [ ] **Multi-resultset support** — multiple SELECT results
+- [ ] **Database migration diff view** — compare schemas
 
 ---
 
@@ -142,14 +144,15 @@ npm run tauri build
 - [x] ER Diagram
 - [x] Settings panel
 - [x] Inline cell editing
+- [x] Connection groups / folders
 - [ ] Query performance profiler
-- [ ] Connection groups / folders
 - [ ] Multi-resultset support
 
 ### v0.4 — Multi-Database
 - [x] SQLite driver
-- [ ] MySQL driver
+- [x] MySQL driver
 - [ ] Database migration diff view
+- [ ] SSH tunnel support
 
 ### Future
 - [ ] Collaboration / shared connections
