@@ -23,6 +23,13 @@ impl ActiveQueries {
     }
 }
 
+#[derive(serde::Serialize)]
+pub struct ImportResult {
+    pub row_count: usize,
+    pub table_name: String,
+    pub columns: Vec<String>,
+}
+
 #[tauri::command]
 pub async fn test_connection(config: ConnectionConfig) -> Result<bool, String> {
     if config.driver == "sqlite" {
@@ -241,4 +248,148 @@ pub async fn export_json(
     }
 
     serde_json::to_string_pretty(&objects).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn import_csv(
+    pools: State<'_, ConnectionPools>,
+    connection_id: String,
+    table_name: String,
+    csv_content: String,
+) -> Result<ImportResult, String> {
+    let pools = pools.0.lock().await;
+    let driver = pools.get(&connection_id).ok_or("Not connected")?;
+
+    // Parse CSV
+    let mut reader = csv::ReaderBuilder::new()
+        .has_headers(true)
+        .from_reader(csv_content.as_bytes());
+
+    let headers: Vec<String> = reader
+        .headers()
+        .map_err(|e| e.to_string())?
+        .iter()
+        .map(|h| sanitize_column_name(h))
+        .collect();
+
+    if headers.is_empty() {
+        return Err("CSV has no headers".to_string());
+    }
+
+    // Collect all rows
+    let mut rows: Vec<Vec<String>> = Vec::new();
+    for result in reader.records() {
+        let record = result.map_err(|e| e.to_string())?;
+        rows.push(record.iter().map(|s| s.to_string()).collect());
+    }
+
+    if rows.is_empty() {
+        return Err("CSV has no data rows".to_string());
+    }
+
+    // Detect types from first 1000 rows
+    let sample_size = rows.len().min(1000);
+    let mut col_types: Vec<&str> = Vec::with_capacity(headers.len());
+    for col_idx in 0..headers.len() {
+        let mut detected = "TEXT";
+        for row in &rows[..sample_size] {
+            let val = row.get(col_idx).map(|s| s.trim()).unwrap_or("");
+            if val.is_empty() {
+                continue;
+            }
+            let t = detect_type(val);
+            if detected == "TEXT" || (detected == "TIMESTAMP" && t != "TEXT") || (detected == "BOOLEAN" && (t == "INTEGER" || t == "REAL")) || (detected == "INTEGER" && t == "REAL") {
+                detected = t;
+            }
+        }
+        col_types.push(detected);
+    }
+
+    // Determine driver type for type mapping
+    let is_sqlite = matches!(driver, DriverWrapper::Sqlite(_));
+
+    // Build CREATE TABLE
+    let create_cols: Vec<String> = headers.iter().enumerate().map(|(i, name)| {
+        let sql_type = if is_sqlite {
+            match col_types[i] {
+                "INTEGER" => "INTEGER",
+                "REAL" => "REAL",
+                "BOOLEAN" => "INTEGER",
+                "TIMESTAMP" => "TEXT",
+                _ => "TEXT",
+            }
+        } else {
+            match col_types[i] {
+                "INTEGER" => "INTEGER",
+                "REAL" => "NUMERIC",
+                "BOOLEAN" => "BOOLEAN",
+                "TIMESTAMP" => "TIMESTAMP",
+                _ => "TEXT",
+            }
+        };
+        format!("\"{}\" {}", name, sql_type)
+    }).collect();
+
+    let create_sql = format!("CREATE TABLE IF NOT EXISTS \"{}\" ({})", table_name, create_cols.join(", "));
+    driver.execute(&create_sql).await?;
+
+    // Batch INSERT
+    const BATCH_SIZE: usize = 500;
+    for chunk in rows.chunks(BATCH_SIZE) {
+        let mut values_parts = Vec::new();
+        for row in chunk {
+            let vals: Vec<String> = row.iter().map(|v| {
+                if v.is_empty() {
+                    "NULL".to_string()
+                } else {
+                    format!("'{}'", v.replace('\'', "''"))
+                }
+            }).collect();
+            values_parts.push(format!("({})", vals.join(", ")));
+        }
+        let insert_sql = format!(
+            "INSERT INTO \"{}\" ({}) VALUES {}",
+            table_name,
+            headers.iter().map(|h| format!("\"{}\"", h)).collect::<Vec<_>>().join(", "),
+            values_parts.join(", ")
+        );
+        driver.execute(&insert_sql).await?;
+    }
+
+    Ok(ImportResult {
+        row_count: rows.len(),
+        table_name,
+        columns: headers,
+    })
+}
+
+fn sanitize_column_name(name: &str) -> String {
+    name.trim()
+        .to_lowercase()
+        .replace(|c: char| !c.is_alphanumeric() && c != '_', "_")
+        .replace("__", "_")
+        .trim_start_matches('_')
+        .trim_end_matches('_')
+        .to_string()
+}
+
+fn detect_type(val: &str) -> &'static str {
+    if val.parse::<i64>().is_ok() {
+        return "INTEGER";
+    }
+    if val.parse::<f64>().is_ok() {
+        return "REAL";
+    }
+    let lower = val.to_lowercase();
+    if lower == "true" || lower == "false" || lower == "1" || lower == "0" || lower == "yes" || lower == "no" || lower == "t" || lower == "f" {
+        return "BOOLEAN";
+    }
+    // Simple ISO 8601 or common date formats
+    if val.len() >= 10 {
+        let date_like = val.contains('-') && (val.contains('T') || val.contains(' '));
+        if date_like {
+            return "TIMESTAMP";
+        }
+    }
+    "TEXT"
 }
