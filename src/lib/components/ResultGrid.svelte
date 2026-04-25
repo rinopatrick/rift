@@ -97,11 +97,14 @@
 
     updating = true;
     try {
-      const updateSql = `UPDATE "${pk.schema}"."${tableName}" SET "${colName}" = ${editValue === "null" || editValue === "" ? "NULL" : `'${editValue.replace(/'/g, "''")}'`} WHERE "${pk.column}" = '${pkValue.replace(/'/g, "''")}'`;
-      await invoke("execute_sql", {
+      await invoke("update_cell", {
         connectionId: connectionStore.activeConnectionId,
-        sql: updateSql,
-        queryId: crypto.randomUUID(),
+        schema: pk.schema,
+        table: tableName,
+        column: colName,
+        value: editValue === "null" || editValue === "" ? null : editValue,
+        pkColumn: pk.column,
+        pkValue: pkValue,
       });
       // Refresh
       await queryStore.executeQuery(connectionStore.activeConnectionId, activeTab.id);

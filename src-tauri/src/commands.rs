@@ -197,6 +197,22 @@ pub fn delete_bookmark(state: State<AppState>, id: String) -> Result<(), String>
 }
 
 #[tauri::command]
+pub async fn update_cell(
+    pools: State<'_, ConnectionPools>,
+    connection_id: String,
+    schema: String,
+    table: String,
+    column: String,
+    value: Option<String>,
+    pk_column: String,
+    pk_value: String,
+) -> Result<(), String> {
+    let pools = pools.0.lock().await;
+    let driver = pools.get(&connection_id).ok_or("Not connected")?;
+    driver.update_cell(&schema, &table, &column, value.as_deref(), &pk_column, &pk_value).await
+}
+
+#[tauri::command]
 pub async fn export_csv(
     pools: State<'_, ConnectionPools>,
     connection_id: String,

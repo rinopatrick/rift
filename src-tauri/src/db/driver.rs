@@ -101,4 +101,47 @@ impl DriverWrapper {
             }
         }
     }
+
+    pub async fn update_cell(
+        &self,
+        schema: &str,
+        table: &str,
+        column: &str,
+        value: Option<&str>,
+        pk_column: &str,
+        pk_value: &str,
+    ) -> Result<(), String> {
+        match self {
+            DriverWrapper::Postgres(pool) => {
+                let client = pool.get().await.map_err(|e| e.to_string())?;
+                let sql = format!(
+                    r#"UPDATE "{}"."{}" SET "{}" = $1 WHERE "{}" = $2"#,
+                    schema, table, column, pk_column
+                );
+                client.execute(&sql, &[&value, &pk_value]).await.map_err(|e| e.to_string())?;
+                Ok(())
+            }
+            DriverWrapper::Sqlite(path) => {
+                let path = path.clone();
+                let schema = schema.to_string();
+                let table = table.to_string();
+                let column = column.to_string();
+                let value = value.map(|s| s.to_string());
+                let pk_column = pk_column.to_string();
+                let pk_value = pk_value.to_string();
+                task::spawn_blocking(move || {
+                    let conn = rusqlite::Connection::open(&path).map_err(|e| e.to_string())?;
+                    // SQLite does not support schema prefix in UPDATE
+                    let sql = format!(
+                        r#"UPDATE "{}" SET "{}" = ?1 WHERE "{}" = ?2"#,
+                        table, column, pk_column
+                    );
+                    conn.execute(&sql, rusqlite::params![value.as_deref(), pk_value.as_str()]).map_err(|e| e.to_string())?;
+                    Ok(())
+                })
+                .await
+                .map_err(|e| e.to_string())?
+            }
+        }
+    }
 }
