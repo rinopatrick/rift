@@ -40,10 +40,14 @@ impl AppState {
                 password TEXT NOT NULL,
                 ssl_mode TEXT NOT NULL,
                 file_path TEXT NOT NULL DEFAULT '',
+                folder TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL
             )",
             [],
         )?;
+
+        // Migration: add folder column if it doesn't exist (ignore error)
+        let _ = db.execute("ALTER TABLE connections ADD COLUMN folder TEXT NOT NULL DEFAULT ''", []);
 
         db.execute(
             "CREATE TABLE IF NOT EXISTS query_history (
@@ -79,11 +83,11 @@ impl AppState {
 
     pub fn save_connection(&self, config: &ConnectionConfig) -> SqlResult<()> {
         self.db.execute(
-            "INSERT OR REPLACE INTO connections (id, name, driver, host, port, database, username, password, ssl_mode, file_path, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            "INSERT OR REPLACE INTO connections (id, name, driver, host, port, database, username, password, ssl_mode, file_path, folder, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             [
                 &config.id, &config.name, &config.driver, &config.host, &config.port.to_string(),
-                &config.database, &config.username, &config.password, &config.ssl_mode, &config.file_path, &config.created_at,
+                &config.database, &config.username, &config.password, &config.ssl_mode, &config.file_path, &config.folder, &config.created_at,
             ],
         )?;
         Ok(())
@@ -91,7 +95,7 @@ impl AppState {
 
     pub fn get_connections(&self) -> SqlResult<Vec<ConnectionInfo>> {
         let mut stmt = self.db.prepare(
-            "SELECT id, name, driver, host, port, database, username, ssl_mode, file_path, created_at FROM connections ORDER BY created_at DESC"
+            "SELECT id, name, driver, host, port, database, username, ssl_mode, file_path, folder, created_at FROM connections ORDER BY folder, created_at DESC"
         )?;
 
         let rows = stmt.query_map([], |row| {
@@ -105,7 +109,8 @@ impl AppState {
                 username: row.get(6)?,
                 ssl_mode: row.get(7)?,
                 file_path: row.get(8)?,
-                created_at: row.get(9)?,
+                folder: row.get(9)?,
+                created_at: row.get(10)?,
             })
         })?;
 
@@ -119,7 +124,7 @@ impl AppState {
 
     pub fn get_connection_config(&self, id: &str) -> SqlResult<Option<ConnectionConfig>> {
         let mut stmt = self.db.prepare(
-            "SELECT id, name, driver, host, port, database, username, password, ssl_mode, file_path, created_at FROM connections WHERE id = ?1"
+            "SELECT id, name, driver, host, port, database, username, password, ssl_mode, file_path, folder, created_at FROM connections WHERE id = ?1"
         )?;
 
         let mut rows = stmt.query_map([id], |row| {
@@ -134,13 +139,13 @@ impl AppState {
                 password: row.get(7)?,
                 ssl_mode: row.get(8)?,
                 file_path: row.get(9)?,
-                created_at: row.get(10)?,
+                folder: row.get(10)?,
+                created_at: row.get(11)?,
             })
         })?;
 
         rows.next().transpose()
     }
-
     pub fn save_query_history(&self, connection_id: &str, query: &str) -> SqlResult<()> {
         let id = uuid::Uuid::new_v4().to_string();
         let executed_at = time::OffsetDateTime::now_utc().to_string();

@@ -9,6 +9,7 @@ export interface ConnectionConfig {
   password: string;
   ssl_mode: string;
   file_path: string;
+  folder: string;
   created_at: string;
 }
 
@@ -22,6 +23,7 @@ export interface ConnectionInfo {
   username: string;
   ssl_mode: string;
   file_path: string;
+  folder: string;
   created_at: string;
 }
 

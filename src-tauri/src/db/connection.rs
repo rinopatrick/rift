@@ -13,6 +13,7 @@ pub struct ConnectionConfig {
     pub password: String,
     pub ssl_mode: String,
     pub file_path: String,
+    pub folder: String,
     pub created_at: String,
 }
 
@@ -29,6 +30,7 @@ impl ConnectionConfig {
             password,
             ssl_mode: "prefer".to_string(),
             file_path: "".to_string(),
+            folder: "".to_string(),
             created_at: time::OffsetDateTime::now_utc().to_string(),
         }
     }
@@ -45,6 +47,7 @@ pub struct ConnectionInfo {
     pub username: String,
     pub ssl_mode: String,
     pub file_path: String,
+    pub folder: String,
     pub created_at: String,
 }
 
@@ -60,6 +63,7 @@ impl From<ConnectionConfig> for ConnectionInfo {
             username: c.username,
             ssl_mode: c.ssl_mode,
             file_path: c.file_path,
+            folder: c.folder,
             created_at: c.created_at,
         }
     }

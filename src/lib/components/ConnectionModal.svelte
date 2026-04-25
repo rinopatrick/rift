@@ -11,6 +11,7 @@
   let username = $state("postgres");
   let password = $state("");
   let filePath = $state("");
+  let folder = $state("");
   let testing = $state(false);
   let testResult = $state<boolean | null>(null);
 
@@ -35,7 +36,7 @@
     try {
       const config: ConnectionConfig = {
         id: "", name, driver, host, port, database, username, password,
-        ssl_mode: "prefer", file_path: filePath, created_at: ""
+        ssl_mode: "prefer", file_path: filePath, folder, created_at: ""
       };
       testResult = await connectionStore.testConnection(config);
     } finally {
@@ -46,7 +47,7 @@
   async function handleSave() {
     const config: ConnectionConfig = {
       id: "", name, driver, host, port, database, username, password,
-      ssl_mode: "prefer", file_path: filePath, created_at: ""
+      ssl_mode: "prefer", file_path: filePath, folder, created_at: ""
     };
     await connectionStore.saveConnection(config);
     uiStore.showConnectionModal = false;
@@ -62,6 +63,7 @@
     username = "postgres";
     password = "";
     filePath = "";
+    folder = "";
     testResult = null;
   }
 </script>
@@ -98,6 +100,11 @@
       <div>
         <label for="conn-name" class="block text-[11px] font-medium text-[#a0a0a0] mb-1">Name</label>
         <input id="conn-name" type="text" bind:value={name} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" placeholder={driver === "sqlite" ? "My SQLite DB" : "My Database"} />
+      </div>
+
+      <div>
+        <label for="conn-folder" class="block text-[11px] font-medium text-[#a0a0a0] mb-1">Folder (optional)</label>
+        <input id="conn-folder" type="text" bind:value={folder} class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-[13px] text-[#e8e8e8] focus:border-[#00d4ff] focus:outline-none" placeholder="Production, Staging, etc." />
       </div>
 
       {#if driver === "sqlite"}
