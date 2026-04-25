@@ -52,11 +52,19 @@ Rift is the open source alternative that doesn't compromise.
 - [x] **Query history** — auto-saved per connection, searchable
 - [x] **Export** — CSV, JSON, SQL INSERT statements
 - [x] **Dark-native UI** — designed in the dark, not adapted to it
-- [ ] **SQL autocomplete** — schema-aware suggestions
-- [ ] **Query execution plan** — EXPLAIN visualizer
-- [ ] **Table data editor** — inline cell editing
-- [ ] **MySQL & SQLite** — multi-database support
+- [x] **SQL autocomplete** — schema-aware suggestions from CodeMirror 6
+- [x] **Query bookmarks** — save and organize favorite queries
+- [x] **Query cancellation** — abort long-running queries
+- [x] **Result charts** — bar and line charts from query results
+- [x] **CSV import** — drag and drop CSV to create tables
+- [x] **Inline cell editing** — double-click to edit with parameterized updates
+- [x] **EXPLAIN plan visualizer** — interactive tree diagram for PostgreSQL
+- [x] **ER Diagram** — auto-generated SVG diagram from schema
+- [x] **Settings panel** — font size, theme, keybinding cheat sheet
+- [ ] **SSH tunnel** — connect through bastion hosts
+- [ ] **MySQL & SQLite** — multi-database support (SQLite partial)
 - [ ] **Connection pooling** — persistent background pools
+- [ ] **Query profiler** — performance analysis
 
 ---
 
@@ -121,21 +129,25 @@ npm run tauri build
 ## Roadmap
 
 ### v0.2 — Polish & Productivity
-- [ ] Monaco Editor integration (syntax highlighting)
-- [ ] Auto-complete from schema introspection
-- [ ] Query bookmarks / favorites
-- [ ] Keyboard shortcut customization
-- [ ] Table creation wizard
+- [x] Monaco Editor integration (syntax highlighting)
+- [x] Auto-complete from schema introspection
+- [x] Query bookmarks / favorites
+- [x] Keyboard shortcut customization
+- [x] Query cancellation
+- [x] Result charts
+- [x] CSV import
 
 ### v0.3 — Power User
-- [ ] EXPLAIN plan visualizer
+- [x] EXPLAIN plan visualizer
+- [x] ER Diagram
+- [x] Settings panel
+- [x] Inline cell editing
 - [ ] Query performance profiler
-- [ ] Data import (CSV → table)
 - [ ] Connection groups / folders
 - [ ] Multi-resultset support
 
 ### v0.4 — Multi-Database
-- [ ] SQLite driver
+- [x] SQLite driver
 - [ ] MySQL driver
 - [ ] Database migration diff view
 
