@@ -147,7 +147,7 @@
             {@const x = barX(i) + (CHART_W / data.length - barWidth()) / 2}
             {@const y = barY(d.value)}
             {@const h = barHeight(d.value)}
-            <rect {x} {y} width={barWidth()} {h} fill="#00d4ff" opacity="0.85" rx="2">
+            <rect {x} {y} width={barWidth()} height={h} fill="#00d4ff" opacity="0.85" rx="2">
               <title>{d.label}: {d.value.toLocaleString()}</title>
             </rect>
           {/each}

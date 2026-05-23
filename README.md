@@ -128,6 +128,28 @@ npm run tauri build
 
 ---
 
+## Release & CI
+
+- CI workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+  - Frontend: `npx svelte-check`, `npm run build`
+  - Backend: `cargo check`, `cargo clippy`, `cargo build` (`src-tauri`)
+- Release workflow: [`.github/workflows/release.yml`](.github/workflows/release.yml)
+  - Triggered by tags `v*.*.*`
+  - Builds and uploads desktop artifacts for macOS, Linux, Windows
+
+Local quality gate before pushing:
+
+```bash
+npx svelte-check
+npm run build
+cd src-tauri
+cargo check
+cargo clippy --all-targets
+cargo build
+```
+
+---
+
 ## Roadmap
 
 ### v0.2 — Polish & Productivity

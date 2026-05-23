@@ -163,7 +163,9 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `erd-${connectionStore.activeConnection?.name ?? "diagram"}.svg`;
+    const activeConnectionName =
+      connectionStore.connections.find((c) => c.id === connectionStore.activeConnectionId)?.name ?? "diagram";
+    a.download = `erd-${activeConnectionName}.svg`;
     a.click();
     URL.revokeObjectURL(url);
   }

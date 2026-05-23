@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine } from "@codemirror/view";
-  import { EditorState, type Extension } from "@codemirror/state";
+  import { Compartment, EditorState, type Extension } from "@codemirror/state";
   import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
   import { bracketMatching, syntaxHighlighting, foldGutter, foldKeymap, indentOnInput, StreamLanguage } from "@codemirror/language";
   import { sql } from "@codemirror/lang-sql";
@@ -25,6 +25,7 @@
 
   let editorEl: HTMLDivElement;
   let view: EditorView;
+  const extensionCompartment = new Compartment();
 
   const riftTheme = EditorView.theme({
     "&": {
@@ -239,7 +240,7 @@
   onMount(() => {
     const state = EditorState.create({
       doc: value,
-      extensions: createExtensions(),
+      extensions: [extensionCompartment.of(createExtensions())],
     });
     view = new EditorView({ state, parent: editorEl });
   });
@@ -259,7 +260,7 @@
 
   $effect(() => {
     if (view) {
-      view.dispatch({ effects: EditorView.reconfigure.of(createExtensions()) });
+      view.dispatch({ effects: extensionCompartment.reconfigure(createExtensions()) });
     }
   });
 </script>

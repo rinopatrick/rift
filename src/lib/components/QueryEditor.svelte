@@ -8,7 +8,7 @@
 
   let activeTab = $derived(queryStore.tabs.find((t) => t.id === queryStore.activeTabId));
 
-  let completions = $derived<Completion[]>(() => {
+  let completions = $derived.by(() => {
     const items: Completion[] = [];
     
     // SQL keywords
@@ -32,7 +32,7 @@
         items.push({ label: table.name, type: "class", detail: qualifiedName });
         items.push({ label: qualifiedName, type: "class", detail: "table" });
         table.columns.forEach(col => {
-          items.push({ label: col.name, type: "property", detail: `${qualifiedName} (${col.dataType})` });
+          items.push({ label: col.name, type: "property", detail: `${qualifiedName} (${col.data_type})` });
         });
       });
     });
@@ -147,7 +147,7 @@
       onChange={handleChange}
       onRun={handleRun}
       onRunNewTab={handleRunNewTab}
-      completions={completions()}
+      completions={completions}
       disabled={!connectionStore.activeConnectionId}
     />
   {:else}

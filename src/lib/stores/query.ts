@@ -9,8 +9,10 @@ export function createQueryStore() {
 
   function addTab() {
     const id = crypto.randomUUID();
-    tabs = [...tabs, { id, name: `Query ${tabs.length + 1}`, sql: "", results: [], activeResultIndex: 0, status: "idle" }];
+    const tab: QueryTab = { id, name: `Query ${tabs.length + 1}`, sql: "", results: [], activeResultIndex: 0, status: "idle" };
+    tabs = [...tabs, tab];
     activeTabId = id;
+    return tab;
   }
 
   function removeTab(id: string) {
