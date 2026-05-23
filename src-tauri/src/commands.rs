@@ -1,15 +1,17 @@
-use tauri::State;
-use crate::AppState;
 use crate::db::connection::{ConnectionConfig, ConnectionInfo};
 use crate::db::driver::DriverWrapper;
-use crate::db::pool::{create_pool, create_mysql_pool};
+use crate::db::error::humanize_error;
+use crate::db::pool::{create_mysql_pool, create_pool};
 use crate::db::ssh_tunnel::SshTunnel;
+use crate::AppState;
 use mysql_async::prelude::Queryable;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tauri::State;
 use tokio::sync::Mutex as AsyncMutex;
 
 pub struct ConnectionPools(pub Arc<AsyncMutex<HashMap<String, DriverWrapper>>>);
+type ActiveQueryMeta = (tokio::task::AbortHandle, Option<i32>, String);
 
 impl ConnectionPools {
     pub fn new() -> Self {
@@ -17,6 +19,7 @@ impl ConnectionPools {
     }
 }
 
+#[allow(dead_code)]
 pub struct SshTunnels(pub Arc<AsyncMutex<HashMap<String, SshTunnel>>>);
 
 impl SshTunnels {
@@ -25,7 +28,7 @@ impl SshTunnels {
     }
 }
 
-pub struct ActiveQueries(pub Arc<AsyncMutex<HashMap<String, tokio::task::AbortHandle>>>);
+pub struct ActiveQueries(pub Arc<AsyncMutex<HashMap<String, ActiveQueryMeta>>>);
 
 impl ActiveQueries {
     pub fn new() -> Self {
@@ -43,23 +46,39 @@ pub struct ImportResult {
 #[tauri::command]
 pub async fn test_connection(config: ConnectionConfig) -> Result<bool, String> {
     if config.driver == "sqlite" {
-        let _ = rusqlite::Connection::open(&config.file_path).map_err(|e| e.to_string())?;
+        let _ = rusqlite::Connection::open(&config.file_path)
+            .map_err(|e| humanize_error(&e.to_string()))?;
         Ok(true)
     } else if config.driver == "mysql" {
-        let pool = create_mysql_pool(&config).map_err(|e| e.to_string())?;
-        let mut conn = pool.get_conn().await.map_err(|e| e.to_string())?;
-        let _ : Vec<mysql_async::Row> = conn.query("SELECT 1").await.map_err(|e| e.to_string())?;
+        let pool = create_mysql_pool(&config).map_err(|e| humanize_error(&e.to_string()))?;
+        let mut conn = pool
+            .get_conn()
+            .await
+            .map_err(|e| humanize_error(&e.to_string()))?;
+        let _: Vec<mysql_async::Row> = conn
+            .query("SELECT 1")
+            .await
+            .map_err(|e| humanize_error(&e.to_string()))?;
         Ok(true)
     } else {
-        let pool = create_pool(&config).map_err(|e| e.to_string())?;
-        let client = pool.get().await.map_err(|e| e.to_string())?;
-        client.execute("SELECT 1", &[]).await.map_err(|e| e.to_string())?;
+        let pool = create_pool(&config).map_err(|e| humanize_error(&e.to_string()))?;
+        let client = pool
+            .get()
+            .await
+            .map_err(|e| humanize_error(&e.to_string()))?;
+        client
+            .execute("SELECT 1", &[])
+            .await
+            .map_err(|e| humanize_error(&e.to_string()))?;
         Ok(true)
     }
 }
 
 #[tauri::command]
-pub fn save_connection(state: State<AppState>, config: ConnectionConfig) -> Result<ConnectionInfo, String> {
+pub fn save_connection(
+    state: State<AppState>,
+    config: ConnectionConfig,
+) -> Result<ConnectionInfo, String> {
     let state = state.0.lock().map_err(|e| e.to_string())?;
     state.save_connection(&config).map_err(|e| e.to_string())?;
     Ok(config.into())
@@ -85,21 +104,35 @@ pub async fn connect_to_database(
 ) -> Result<bool, String> {
     let config = {
         let state = state.0.lock().map_err(|e| e.to_string())?;
-        state.get_connection_config(&id).map_err(|e| e.to_string())?
+        state
+            .get_connection_config(&id)
+            .map_err(|e| e.to_string())?
             .ok_or_else(|| "Connection not found".to_string())?
     };
 
     let driver = if config.driver == "sqlite" {
         DriverWrapper::Sqlite(config.file_path.clone())
     } else if config.driver == "mysql" {
-        let pool = create_mysql_pool(&config).map_err(|e| e.to_string())?;
-        let mut conn = pool.get_conn().await.map_err(|e| e.to_string())?;
-        let _ : Vec<mysql_async::Row> = conn.query("SELECT 1").await.map_err(|e| e.to_string())?;
+        let pool = create_mysql_pool(&config).map_err(|e| humanize_error(&e.to_string()))?;
+        let mut conn = pool
+            .get_conn()
+            .await
+            .map_err(|e| humanize_error(&e.to_string()))?;
+        let _: Vec<mysql_async::Row> = conn
+            .query("SELECT 1")
+            .await
+            .map_err(|e| humanize_error(&e.to_string()))?;
         DriverWrapper::Mysql(pool)
     } else {
-        let pool = create_pool(&config).map_err(|e| e.to_string())?;
-        let client = pool.get().await.map_err(|e| e.to_string())?;
-        client.execute("SELECT 1", &[]).await.map_err(|e| e.to_string())?;
+        let pool = create_pool(&config).map_err(|e| humanize_error(&e.to_string()))?;
+        let client = pool
+            .get()
+            .await
+            .map_err(|e| humanize_error(&e.to_string()))?;
+        client
+            .execute("SELECT 1", &[])
+            .await
+            .map_err(|e| humanize_error(&e.to_string()))?;
         DriverWrapper::Postgres(pool)
     };
 
@@ -126,13 +159,39 @@ pub async fn execute_sql(
         }
     };
 
-    let handle = tokio::spawn(async move {
-        driver.execute(&sql).await
-    });
+    let handle: tokio::task::JoinHandle<Result<crate::db::query::QueryResult, String>>;
+    let mut pid: Option<i32> = None;
+
+    match &driver {
+        DriverWrapper::Postgres(pool) => {
+            let client = pool
+                .get()
+                .await
+                .map_err(|e| humanize_error(&e.to_string()))?;
+            // Get backend PID for server-side cancellation support
+            if let Ok(rows) = client.query("SELECT pg_backend_pid()", &[]).await {
+                if let Some(row) = rows.first() {
+                    pid = row.get::<_, i32>(0).into();
+                }
+            }
+            let sql = sql.clone();
+            handle = tokio::spawn(async move {
+                crate::db::query::execute_query(&client, &sql)
+                    .await
+                    .map_err(|e| humanize_error(&e.to_string()))
+            });
+        }
+        _ => {
+            handle = tokio::spawn(async move { driver.execute(&sql).await });
+        }
+    }
 
     {
         let mut aq = active_queries.0.lock().await;
-        aq.insert(query_id.clone(), handle.abort_handle());
+        aq.insert(
+            query_id.clone(),
+            (handle.abort_handle(), pid, connection_id.clone()),
+        );
     }
 
     let result = handle.await;
@@ -232,7 +291,10 @@ pub async fn execute_multi_sql(
 
     {
         let mut aq = active_queries.0.lock().await;
-        aq.insert(query_id.clone(), handle.abort_handle());
+        aq.insert(
+            query_id.clone(),
+            (handle.abort_handle(), None, connection_id.clone()),
+        );
     }
 
     let result = handle.await;
@@ -252,13 +314,32 @@ pub async fn execute_multi_sql(
 
 #[tauri::command]
 pub async fn cancel_query(
+    pools: State<'_, ConnectionPools>,
     active_queries: State<'_, ActiveQueries>,
     query_id: String,
 ) -> Result<(), String> {
-    let mut aq = active_queries.0.lock().await;
-    if let Some(handle) = aq.remove(&query_id) {
-        handle.abort();
+    let (handle, pid, conn_id) = {
+        let mut aq = active_queries.0.lock().await;
+        match aq.remove(&query_id) {
+            Some((h, p, c)) => (h, p, c),
+            None => return Ok(()),
+        }
+    };
+
+    // Try server-side cancellation for PostgreSQL
+    if let Some(pid) = pid {
+        let pools = pools.0.lock().await;
+        if let Some(DriverWrapper::Postgres(pool)) = pools.get(&conn_id) {
+            if let Ok(client) = pool.get().await {
+                let _ = client
+                    .execute("SELECT pg_cancel_backend($1)", &[&pid])
+                    .await;
+            }
+        }
     }
+
+    // Also abort the client-side task
+    handle.abort();
     Ok(())
 }
 
@@ -279,7 +360,9 @@ pub fn save_query_history(
     query: String,
 ) -> Result<(), String> {
     let state = state.0.lock().map_err(|e| e.to_string())?;
-    state.save_query_history(&connection_id, &query).map_err(|e| e.to_string())
+    state
+        .save_query_history(&connection_id, &query)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -288,7 +371,9 @@ pub fn get_query_history(
     connection_id: String,
 ) -> Result<Vec<crate::state::QueryHistoryItem>, String> {
     let state = state.0.lock().map_err(|e| e.to_string())?;
-    state.get_query_history(&connection_id).map_err(|e| e.to_string())
+    state
+        .get_query_history(&connection_id)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -299,7 +384,9 @@ pub fn save_bookmark(
     query: String,
 ) -> Result<String, String> {
     let state = state.0.lock().map_err(|e| e.to_string())?;
-    state.save_bookmark(&connection_id, &name, &query).map_err(|e| e.to_string())
+    state
+        .save_bookmark(&connection_id, &name, &query)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -308,7 +395,9 @@ pub fn get_bookmarks(
     connection_id: String,
 ) -> Result<Vec<crate::state::QueryBookmark>, String> {
     let state = state.0.lock().map_err(|e| e.to_string())?;
-    state.get_bookmarks(&connection_id).map_err(|e| e.to_string())
+    state
+        .get_bookmarks(&connection_id)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -320,17 +409,20 @@ pub fn delete_bookmark(state: State<AppState>, id: String) -> Result<(), String>
 #[tauri::command]
 pub async fn update_cell(
     pools: State<'_, ConnectionPools>,
-    connection_id: String,
-    schema: String,
-    table: String,
-    column: String,
-    value: Option<String>,
-    pk_column: String,
-    pk_value: String,
+    req: UpdateCellRequest,
 ) -> Result<(), String> {
     let pools = pools.0.lock().await;
-    let driver = pools.get(&connection_id).ok_or("Not connected")?;
-    driver.update_cell(&schema, &table, &column, value.as_deref(), &pk_column, &pk_value).await
+    let driver = pools.get(&req.connection_id).ok_or("Not connected")?;
+    driver
+        .update_cell(
+            &req.schema,
+            &req.table,
+            &req.column,
+            req.value.as_deref(),
+            &req.pk_column,
+            &req.pk_value,
+        )
+        .await
 }
 
 #[tauri::command]
@@ -344,16 +436,24 @@ pub async fn export_csv(
     let result = driver.execute(&sql).await?;
 
     let mut csv = String::new();
-    csv.push_str(&result.columns.iter().map(|c| c.name.clone()).collect::<Vec<_>>().join(","));
+    csv.push_str(
+        &result
+            .columns
+            .iter()
+            .map(|c| c.name.clone())
+            .collect::<Vec<_>>()
+            .join(","),
+    );
     csv.push('\n');
 
     for row in &result.rows {
-        let cells: Vec<String> = row.iter().map(|c| {
-            match c {
+        let cells: Vec<String> = row
+            .iter()
+            .map(|c| match c {
                 Some(v) => format!("\"{}\"", v.replace('\"', "\"\"")),
                 None => "\"\"".to_string(),
-            }
-        }).collect();
+            })
+            .collect();
         csv.push_str(&cells.join(","));
         csv.push('\n');
     }
@@ -406,7 +506,7 @@ pub async fn import_csv(
         .headers()
         .map_err(|e| e.to_string())?
         .iter()
-        .map(|h| sanitize_column_name(h))
+        .map(sanitize_column_name)
         .collect();
 
     if headers.is_empty() {
@@ -435,7 +535,11 @@ pub async fn import_csv(
                 continue;
             }
             let t = detect_type(val);
-            if detected == "TEXT" || (detected == "TIMESTAMP" && t != "TEXT") || (detected == "BOOLEAN" && (t == "INTEGER" || t == "REAL")) || (detected == "INTEGER" && t == "REAL") {
+            if detected == "TEXT"
+                || (detected == "TIMESTAMP" && t != "TEXT")
+                || (detected == "BOOLEAN" && (t == "INTEGER" || t == "REAL"))
+                || (detected == "INTEGER" && t == "REAL")
+            {
                 detected = t;
             }
         }
@@ -446,28 +550,36 @@ pub async fn import_csv(
     let is_sqlite = matches!(driver, DriverWrapper::Sqlite(_));
 
     // Build CREATE TABLE
-    let create_cols: Vec<String> = headers.iter().enumerate().map(|(i, name)| {
-        let sql_type = if is_sqlite {
-            match col_types[i] {
-                "INTEGER" => "INTEGER",
-                "REAL" => "REAL",
-                "BOOLEAN" => "INTEGER",
-                "TIMESTAMP" => "TEXT",
-                _ => "TEXT",
-            }
-        } else {
-            match col_types[i] {
-                "INTEGER" => "INTEGER",
-                "REAL" => "NUMERIC",
-                "BOOLEAN" => "BOOLEAN",
-                "TIMESTAMP" => "TIMESTAMP",
-                _ => "TEXT",
-            }
-        };
-        format!("\"{}\" {}", name, sql_type)
-    }).collect();
+    let create_cols: Vec<String> = headers
+        .iter()
+        .enumerate()
+        .map(|(i, name)| {
+            let sql_type = if is_sqlite {
+                match col_types[i] {
+                    "INTEGER" => "INTEGER",
+                    "REAL" => "REAL",
+                    "BOOLEAN" => "INTEGER",
+                    "TIMESTAMP" => "TEXT",
+                    _ => "TEXT",
+                }
+            } else {
+                match col_types[i] {
+                    "INTEGER" => "INTEGER",
+                    "REAL" => "NUMERIC",
+                    "BOOLEAN" => "BOOLEAN",
+                    "TIMESTAMP" => "TIMESTAMP",
+                    _ => "TEXT",
+                }
+            };
+            format!("\"{}\" {}", name, sql_type)
+        })
+        .collect();
 
-    let create_sql = format!("CREATE TABLE IF NOT EXISTS \"{}\" ({})", table_name, create_cols.join(", "));
+    let create_sql = format!(
+        "CREATE TABLE IF NOT EXISTS \"{}\" ({})",
+        table_name,
+        create_cols.join(", ")
+    );
     driver.execute(&create_sql).await?;
 
     // Batch INSERT
@@ -475,19 +587,26 @@ pub async fn import_csv(
     for chunk in rows.chunks(BATCH_SIZE) {
         let mut values_parts = Vec::new();
         for row in chunk {
-            let vals: Vec<String> = row.iter().map(|v| {
-                if v.is_empty() {
-                    "NULL".to_string()
-                } else {
-                    format!("'{}'", v.replace('\'', "''"))
-                }
-            }).collect();
+            let vals: Vec<String> = row
+                .iter()
+                .map(|v| {
+                    if v.is_empty() {
+                        "NULL".to_string()
+                    } else {
+                        format!("'{}'", v.replace('\'', "''"))
+                    }
+                })
+                .collect();
             values_parts.push(format!("({})", vals.join(", ")));
         }
         let insert_sql = format!(
             "INSERT INTO \"{}\" ({}) VALUES {}",
             table_name,
-            headers.iter().map(|h| format!("\"{}\"", h)).collect::<Vec<_>>().join(", "),
+            headers
+                .iter()
+                .map(|h| format!("\"{}\"", h))
+                .collect::<Vec<_>>()
+                .join(", "),
             values_parts.join(", ")
         );
         driver.execute(&insert_sql).await?;
@@ -518,7 +637,15 @@ fn detect_type(val: &str) -> &'static str {
         return "REAL";
     }
     let lower = val.to_lowercase();
-    if lower == "true" || lower == "false" || lower == "1" || lower == "0" || lower == "yes" || lower == "no" || lower == "t" || lower == "f" {
+    if lower == "true"
+        || lower == "false"
+        || lower == "1"
+        || lower == "0"
+        || lower == "yes"
+        || lower == "no"
+        || lower == "t"
+        || lower == "f"
+    {
         return "BOOLEAN";
     }
     // Simple ISO 8601 or common date formats
@@ -529,6 +656,17 @@ fn detect_type(val: &str) -> &'static str {
         }
     }
     "TEXT"
+}
+
+#[derive(serde::Deserialize)]
+pub struct UpdateCellRequest {
+    pub connection_id: String,
+    pub schema: String,
+    pub table: String,
+    pub column: String,
+    pub value: Option<String>,
+    pub pk_column: String,
+    pub pk_value: String,
 }
 
 #[tauri::command]
@@ -542,7 +680,7 @@ pub async fn explain_query(
 
     // Only PostgreSQL supports EXPLAIN (FORMAT JSON)
     match driver {
-        DriverWrapper::Postgres(_) => {},
+        DriverWrapper::Postgres(_) => {}
         _ => return Err("EXPLAIN visualizer is only available for PostgreSQL".to_string()),
     }
 
@@ -568,7 +706,7 @@ pub async fn profile_query(
     let driver = pools.get(&connection_id).ok_or("Not connected")?;
 
     match driver {
-        DriverWrapper::Postgres(_) => {},
+        DriverWrapper::Postgres(_) => {}
         _ => return Err("Query profiler is only available for PostgreSQL".to_string()),
     }
 
@@ -592,6 +730,35 @@ pub async fn get_foreign_keys(
     let pools = pools.0.lock().await;
     let driver = pools.get(&connection_id).ok_or("Not connected")?;
     driver.get_foreign_keys().await
+}
+
+#[tauri::command]
+pub async fn diff_schemas(
+    pools: State<'_, ConnectionPools>,
+    source_connection_id: String,
+    target_connection_id: String,
+) -> Result<crate::db::schema_diff::SchemaDiff, String> {
+    let (source_driver, target_driver) = {
+        let pools = pools.0.lock().await;
+        let source = pools
+            .get(&source_connection_id)
+            .ok_or("Source not connected")?
+            .clone();
+        let target = pools
+            .get(&target_connection_id)
+            .ok_or("Target not connected")?
+            .clone();
+        (source, target)
+    };
+
+    match (&source_driver, &target_driver) {
+        (DriverWrapper::Postgres(source_pool), DriverWrapper::Postgres(target_pool)) => {
+            let source_client = source_pool.get().await.map_err(|e| e.to_string())?;
+            let target_client = target_pool.get().await.map_err(|e| e.to_string())?;
+            crate::db::schema_diff::diff_postgres_schemas(&source_client, &target_client).await
+        }
+        _ => Err("Schema diff is only supported for PostgreSQL connections".to_string()),
+    }
 }
 
 #[tauri::command]

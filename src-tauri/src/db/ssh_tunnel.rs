@@ -1,12 +1,12 @@
-use std::net::SocketAddr;
-use std::sync::Arc;
 use russh::client::{self, Handle, Handler};
-use russh::{ChannelId, CryptoVec};
+use russh::ChannelId;
+use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::task::{self, JoinHandle};
 use tokio::sync::Mutex;
+use tokio::task::{self, JoinHandle};
 
+#[allow(dead_code)]
 #[derive(Debug, thiserror::Error)]
 pub enum SshTunnelError {
     #[error("SSH connection failed: {0}")]
@@ -24,6 +24,7 @@ struct ClientHandler;
 impl Handler for ClientHandler {
     type Error = russh::Error;
 
+    #[allow(clippy::manual_async_fn)]
     fn check_server_key(
         &mut self,
         _server_public_key: &russh::keys::PublicKey,
@@ -31,6 +32,7 @@ impl Handler for ClientHandler {
         async { Ok(true) }
     }
 
+    #[allow(clippy::manual_async_fn)]
     fn channel_open_confirmation(
         &mut self,
         _id: ChannelId,
@@ -41,6 +43,7 @@ impl Handler for ClientHandler {
         async { Ok(()) }
     }
 
+    #[allow(clippy::manual_async_fn)]
     fn channel_success(
         &mut self,
         _channel: ChannelId,
@@ -49,6 +52,7 @@ impl Handler for ClientHandler {
         async { Ok(()) }
     }
 
+    #[allow(clippy::manual_async_fn)]
     fn channel_failure(
         &mut self,
         _channel: ChannelId,
@@ -57,6 +61,7 @@ impl Handler for ClientHandler {
         async { Ok(()) }
     }
 
+    #[allow(clippy::manual_async_fn)]
     fn channel_close(
         &mut self,
         _channel: ChannelId,
@@ -65,6 +70,7 @@ impl Handler for ClientHandler {
         async { Ok(()) }
     }
 
+    #[allow(clippy::manual_async_fn)]
     fn channel_eof(
         &mut self,
         _channel: ChannelId,
@@ -73,6 +79,7 @@ impl Handler for ClientHandler {
         async { Ok(()) }
     }
 
+    #[allow(clippy::manual_async_fn)]
     fn data(
         &mut self,
         _channel: ChannelId,
@@ -83,13 +90,16 @@ impl Handler for ClientHandler {
     }
 }
 
+#[allow(dead_code)]
 pub struct SshTunnel {
     pub local_port: u16,
     _accept_task: JoinHandle<()>,
     _session: Arc<Mutex<Handle<ClientHandler>>>,
 }
 
+#[allow(dead_code)]
 impl SshTunnel {
+    #[allow(clippy::too_many_arguments)]
     pub async fn connect(
         ssh_host: &str,
         ssh_port: u16,
@@ -120,10 +130,8 @@ impl SshTunnel {
             };
             match key_pair {
                 Ok(key) => {
-                    let key_with_hash = russh::keys::PrivateKeyWithHashAlg::new(
-                        Arc::new(key),
-                        None,
-                    );
+                    let key_with_hash =
+                        russh::keys::PrivateKeyWithHashAlg::new(Arc::new(key), None);
                     session
                         .authenticate_publickey(ssh_username.to_string(), key_with_hash)
                         .await
@@ -137,13 +145,17 @@ impl SshTunnel {
                 .await
                 .map_err(|e| SshTunnelError::Auth(e.to_string()))?
         } else {
-            return Err(SshTunnelError::Auth("No authentication method provided".to_string()));
+            return Err(SshTunnelError::Auth(
+                "No authentication method provided".to_string(),
+            ));
         };
 
         match auth_result {
             russh::client::AuthResult::Success => {}
             russh::client::AuthResult::Failure { .. } => {
-                return Err(SshTunnelError::Auth("Authentication rejected by server".to_string()));
+                return Err(SshTunnelError::Auth(
+                    "Authentication rejected by server".to_string(),
+                ));
             }
         }
 
@@ -155,22 +167,16 @@ impl SshTunnel {
         let local_port = local_addr.port();
 
         let target_host = target_host.to_string();
-        let target_port = target_port;
         let session_clone = Arc::clone(&session);
 
         let accept_task = task::spawn(async move {
-            loop {
-                match listener.accept().await {
-                    Ok((local_stream, _)) => {
-                        let sess = Arc::clone(&session_clone);
-                        let host = target_host.clone();
-                        let port = target_port;
-                        task::spawn(async move {
-                            let _ = forward_connection(sess, local_stream, host, port).await;
-                        });
-                    }
-                    Err(_) => break,
-                }
+            while let Ok((local_stream, _)) = listener.accept().await {
+                let sess = Arc::clone(&session_clone);
+                let host = target_host.clone();
+                let port = target_port;
+                task::spawn(async move {
+                    let _ = forward_connection(sess, local_stream, host, port).await;
+                });
             }
         });
 
@@ -184,12 +190,12 @@ impl SshTunnel {
 
 async fn forward_connection(
     session: Arc<Mutex<Handle<ClientHandler>>>,
-    mut local_stream: TcpStream,
+    local_stream: TcpStream,
     target_host: String,
     target_port: u16,
 ) -> Result<(), SshTunnelError> {
     let channel = {
-        let mut sess = session.lock().await;
+        let sess = session.lock().await;
         sess.channel_open_direct_tcpip(target_host, target_port as u32, "127.0.0.1", 0)
             .await
             .map_err(|e| SshTunnelError::Ssh(e.to_string()))?
