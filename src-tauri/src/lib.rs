@@ -1,8 +1,9 @@
-use tauri::Manager;
 use std::sync::Mutex;
+use tauri::Manager;
 
 mod commands;
 mod db;
+mod keyring;
 mod schema;
 mod state;
 
@@ -16,7 +17,10 @@ pub fn run() {
         .manage(commands::SshTunnels::new())
         .manage(commands::ActiveQueries::new())
         .setup(|app| {
-            let app_dir = app.path().app_data_dir().expect("failed to get app data dir");
+            let app_dir = app
+                .path()
+                .app_data_dir()
+                .expect("failed to get app data dir");
             std::fs::create_dir_all(&app_dir).ok();
             let app_state = state::AppState::new(&app_dir).expect("failed to init state");
             app.manage(AppState(Mutex::new(app_state)));
@@ -44,6 +48,7 @@ pub fn run() {
             commands::explain_query,
             commands::profile_query,
             commands::get_foreign_keys,
+            commands::diff_schemas,
             commands::save_setting,
             commands::get_settings,
         ])

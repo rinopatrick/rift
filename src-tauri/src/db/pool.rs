@@ -1,6 +1,6 @@
+use crate::db::connection::ConnectionConfig;
 use deadpool_postgres::{Config, Pool, Runtime};
 use tokio_postgres::NoTls;
-use crate::db::connection::ConnectionConfig;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PoolError {
@@ -10,8 +10,6 @@ pub enum PoolError {
     Postgres(#[from] tokio_postgres::Error),
     #[error("mysql error: {0}")]
     Mysql(#[from] mysql_async::Error),
-    #[error("pool exhausted")]
-    Exhausted,
 }
 
 pub fn create_pool(config: &ConnectionConfig) -> Result<Pool, PoolError> {

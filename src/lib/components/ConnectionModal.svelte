@@ -95,7 +95,7 @@
   <div class="w-full max-w-md bg-[#141414] border border-[#333333] rounded-lg shadow-xl">
     <div class="flex items-center justify-between px-4 py-3 border-b border-[#2a2a2a]">
       <h3 class="text-sm font-semibold text-[#e8e8e8]">New Connection</h3>
-      <button onclick={() => uiStore.showConnectionModal = false} class="text-[#6b6b6b] hover:text-[#e8e8e8]">
+      <button aria-label="Close modal" onclick={() => uiStore.showConnectionModal = false} class="text-[#6b6b6b] hover:text-[#e8e8e8]">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
       </button>
     </div>

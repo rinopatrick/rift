@@ -16,7 +16,7 @@
   const BUFFER = 8;
   let scrollTop = $state(0);
   let containerHeight = $state(0);
-  let viewportEl: HTMLDivElement;
+  let viewportEl = $state<HTMLDivElement | null>(null);
 
   let totalHeight = $derived((result?.rows.length ?? 0) * ROW_HEIGHT);
   let visibleStart = $derived(Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - BUFFER));
@@ -244,8 +244,11 @@
               {#each row as cell, j}
                 {@const isEditing = editingCell?.row === absoluteIndex && editingCell?.col === j}
                 <div class="px-3 text-[#e8e8e8] font-mono text-[12px] whitespace-nowrap truncate border-r border-[#1e1e1e] last:border-r-0 flex items-center flex-shrink-0 {editable ? 'cursor-pointer' : ''}"
+                     role="button"
+                     tabindex="0"
                      style="min-width: 80px; width: {Math.max(80, result.columns[j].name.length * 9)}px;"
-                     ondblclick={() => editable && startEdit(absoluteIndex, j, cell)}>
+                     ondblclick={() => editable && startEdit(absoluteIndex, j, cell)}
+                     onkeydown={(e) => editable && (e.key === "Enter" || e.key === " ") && startEdit(absoluteIndex, j, cell)}>
                   {#if isEditing}
                     <input
                       bind:value={editValue}
@@ -255,7 +258,6 @@
                       }}
                       onblur={() => commitEdit(absoluteIndex, j)}
                       class="w-full bg-[#1a3a4a] text-[#e8e8e8] font-mono text-[12px] px-1 py-0.5 rounded outline-none border border-[#00d4ff]"
-                      autofocus
                     />
                   {:else if cell === null}
                     <span class="text-[#6b6b6b]">NULL</span>

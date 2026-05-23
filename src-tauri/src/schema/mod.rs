@@ -34,7 +34,9 @@ pub struct ForeignKeyInfo {
     pub foreign_column_name: String,
 }
 
-pub async fn get_foreign_keys(client: &Client) -> Result<Vec<ForeignKeyInfo>, tokio_postgres::Error> {
+pub async fn get_foreign_keys(
+    client: &Client,
+) -> Result<Vec<ForeignKeyInfo>, tokio_postgres::Error> {
     let rows = client
         .query(
             "SELECT
@@ -57,15 +59,18 @@ pub async fn get_foreign_keys(client: &Client) -> Result<Vec<ForeignKeyInfo>, to
         )
         .await?;
 
-    Ok(rows.iter().map(|r| ForeignKeyInfo {
-        constraint_name: r.get(0),
-        table_schema: r.get(1),
-        table_name: r.get(2),
-        column_name: r.get(3),
-        foreign_table_schema: r.get(4),
-        foreign_table_name: r.get(5),
-        foreign_column_name: r.get(6),
-    }).collect())
+    Ok(rows
+        .iter()
+        .map(|r| ForeignKeyInfo {
+            constraint_name: r.get(0),
+            table_schema: r.get(1),
+            table_name: r.get(2),
+            column_name: r.get(3),
+            foreign_table_schema: r.get(4),
+            foreign_table_name: r.get(5),
+            foreign_column_name: r.get(6),
+        })
+        .collect())
 }
 
 pub async fn get_schemas(client: &Client) -> Result<Vec<SchemaInfo>, tokio_postgres::Error> {
@@ -107,10 +112,8 @@ pub async fn get_schemas(client: &Client) -> Result<Vec<SchemaInfo>, tokio_postg
                 )
                 .await?;
 
-            let pk_columns: std::collections::HashSet<String> = pk_rows
-                .iter()
-                .map(|r| r.get::<_, String>(0))
-                .collect();
+            let pk_columns: std::collections::HashSet<String> =
+                pk_rows.iter().map(|r| r.get::<_, String>(0)).collect();
 
             let columns: Vec<ColumnInfo> = col_rows
                 .iter()

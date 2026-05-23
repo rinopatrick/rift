@@ -14,6 +14,7 @@
         {/if}
       </button>
       <button
+        aria-label="Close tab"
         onclick={(e) => { e.stopPropagation(); queryStore.removeTab(tab.id); }}
         class="opacity-0 group-hover:opacity-100 hover:text-[#ef4444] ml-1"
       >
@@ -21,7 +22,7 @@
       </button>
     </div>
   {/each}
-  <button onclick={() => queryStore.addTab()} class="px-2 h-full text-[#6b6b6b] hover:text-[#a0a0a0]">
+  <button aria-label="New tab" onclick={() => queryStore.addTab()} class="px-2 h-full text-[#6b6b6b] hover:text-[#a0a0a0]">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
   </button>
 </div>

@@ -31,6 +31,7 @@
 
 <div class="relative">
   <button
+    aria-label="Toggle query history"
     onclick={() => { visible = !visible; if (visible) loadHistory(); }}
     class="text-[11px] font-medium text-[#6b6b6b] hover:text-[#a0a0a0] px-2 py-1"
     title="Query History"
@@ -44,7 +45,7 @@
     <div class="absolute bottom-8 right-0 w-80 bg-[#141414] border border-[#2a2a2a] rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto">
       <div class="flex items-center justify-between px-3 py-2 border-b border-[#2a2a2a]">
         <span class="text-[11px] font-medium text-[#a0a0a0]">Query History</span>
-        <button onclick={() => visible = false} class="text-[#6b6b6b] hover:text-[#e8e8e8]">
+        <button aria-label="Close history" onclick={() => visible = false} class="text-[#6b6b6b] hover:text-[#e8e8e8]">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
         </button>
       </div>

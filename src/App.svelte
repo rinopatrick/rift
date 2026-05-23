@@ -6,10 +6,11 @@
   import ResultGrid from "./lib/components/ResultGrid.svelte";
   import StatusBar from "./lib/components/StatusBar.svelte";
   import ERDiagram from "./lib/components/ERDiagram.svelte";
+  import SchemaDiff from "./lib/components/SchemaDiff.svelte";
   import { settingsStore } from "./lib/stores/settings";
   import { connectionStore } from "./lib/stores/connection";
 
-  let mainView = $state<"query" | "erd">("query");
+  let mainView = $state<"query" | "erd" | "diff">("query");
 
   $effect(() => {
     settingsStore.load();
@@ -36,6 +37,12 @@
         >
           ER Diagram
         </button>
+        <button
+          onclick={() => mainView = "diff"}
+          class="text-[10px] font-medium px-2 py-0.5 rounded {mainView === 'diff' ? 'bg-[#00d4ff] text-black' : 'text-[#a0a0a0] hover:text-[#e8e8e8]'}"
+        >
+          Schema Diff
+        </button>
       </div>
     </div>
     {#if mainView === "query"}
@@ -47,9 +54,13 @@
           <ResultGrid />
         </div>
       </div>
-    {:else}
+    {:else if mainView === "erd"}
       <div class="flex-1 min-h-0">
         <ERDiagram />
+      </div>
+    {:else}
+      <div class="flex-1 min-h-0 overflow-auto">
+        <SchemaDiff connections={connectionStore.connections} />
       </div>
     {/if}
     <StatusBar />

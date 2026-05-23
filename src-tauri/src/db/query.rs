@@ -1,4 +1,4 @@
-use serde::{Serialize};
+use serde::Serialize;
 use tokio_postgres::Row;
 
 #[derive(Debug, Clone, Serialize)]
@@ -20,10 +20,10 @@ pub async fn execute_query(
     sql: &str,
 ) -> Result<QueryResult, tokio_postgres::Error> {
     let start = std::time::Instant::now();
-    
+
     let rows = client.query(sql, &[]).await?;
     let execution_time_ms = start.elapsed().as_millis() as u64;
-    
+
     if rows.is_empty() {
         return Ok(QueryResult {
             columns: vec![],
@@ -32,7 +32,7 @@ pub async fn execute_query(
             execution_time_ms,
         });
     }
-    
+
     let columns: Vec<ColumnInfo> = rows[0]
         .columns()
         .iter()
@@ -41,7 +41,7 @@ pub async fn execute_query(
             data_type: format!("{:?}", c.type_()),
         })
         .collect();
-    
+
     let mut result_rows: Vec<Vec<Option<String>>> = Vec::with_capacity(rows.len());
     for row in &rows {
         let mut result_row = Vec::with_capacity(columns.len());
@@ -51,9 +51,9 @@ pub async fn execute_query(
         }
         result_rows.push(result_row);
     }
-    
+
     let row_count = result_rows.len();
-    
+
     Ok(QueryResult {
         columns,
         rows: result_rows,

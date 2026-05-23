@@ -64,6 +64,7 @@
               {bm.name}
             </button>
             <button
+              aria-label="Delete bookmark"
               onclick={() => connectionStore.activeConnectionId && bookmarkStore.remove(bm.id, connectionStore.activeConnectionId)}
               class="opacity-0 group-hover:opacity-100 text-[#6b6b6b] hover:text-[#ef4444] ml-1"
             >

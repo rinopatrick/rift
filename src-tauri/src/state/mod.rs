@@ -1,6 +1,6 @@
+use crate::db::connection::{ConnectionConfig, ConnectionInfo};
 use rusqlite::{Connection, Result as SqlResult};
 use serde::Serialize;
-use crate::db::connection::{ConnectionConfig, ConnectionInfo};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct QueryHistoryItem {
@@ -54,16 +54,40 @@ impl AppState {
         )?;
 
         // Migration: add folder column if it doesn't exist (ignore error)
-        let _ = db.execute("ALTER TABLE connections ADD COLUMN folder TEXT NOT NULL DEFAULT ''", []);
+        let _ = db.execute(
+            "ALTER TABLE connections ADD COLUMN folder TEXT NOT NULL DEFAULT ''",
+            [],
+        );
 
         // Migration: add SSH tunnel columns (ignore errors if already exist)
-        let _ = db.execute("ALTER TABLE connections ADD COLUMN use_ssh_tunnel INTEGER NOT NULL DEFAULT 0", []);
-        let _ = db.execute("ALTER TABLE connections ADD COLUMN ssh_host TEXT NOT NULL DEFAULT ''", []);
-        let _ = db.execute("ALTER TABLE connections ADD COLUMN ssh_port INTEGER NOT NULL DEFAULT 22", []);
-        let _ = db.execute("ALTER TABLE connections ADD COLUMN ssh_username TEXT NOT NULL DEFAULT ''", []);
-        let _ = db.execute("ALTER TABLE connections ADD COLUMN ssh_password TEXT NOT NULL DEFAULT ''", []);
-        let _ = db.execute("ALTER TABLE connections ADD COLUMN ssh_private_key TEXT NOT NULL DEFAULT ''", []);
-        let _ = db.execute("ALTER TABLE connections ADD COLUMN ssh_passphrase TEXT NOT NULL DEFAULT ''", []);
+        let _ = db.execute(
+            "ALTER TABLE connections ADD COLUMN use_ssh_tunnel INTEGER NOT NULL DEFAULT 0",
+            [],
+        );
+        let _ = db.execute(
+            "ALTER TABLE connections ADD COLUMN ssh_host TEXT NOT NULL DEFAULT ''",
+            [],
+        );
+        let _ = db.execute(
+            "ALTER TABLE connections ADD COLUMN ssh_port INTEGER NOT NULL DEFAULT 22",
+            [],
+        );
+        let _ = db.execute(
+            "ALTER TABLE connections ADD COLUMN ssh_username TEXT NOT NULL DEFAULT ''",
+            [],
+        );
+        let _ = db.execute(
+            "ALTER TABLE connections ADD COLUMN ssh_password TEXT NOT NULL DEFAULT ''",
+            [],
+        );
+        let _ = db.execute(
+            "ALTER TABLE connections ADD COLUMN ssh_private_key TEXT NOT NULL DEFAULT ''",
+            [],
+        );
+        let _ = db.execute(
+            "ALTER TABLE connections ADD COLUMN ssh_passphrase TEXT NOT NULL DEFAULT ''",
+            [],
+        );
 
         db.execute(
             "CREATE TABLE IF NOT EXISTS query_history (
@@ -98,15 +122,24 @@ impl AppState {
     }
 
     pub fn save_connection(&self, config: &ConnectionConfig) -> SqlResult<()> {
+        // Store sensitive fields in OS keyring, not SQLite
+        let db_password = config.password.clone();
+        let ssh_password = config.ssh_password.clone();
+        let ssh_passphrase = config.ssh_passphrase.clone();
+
+        let _ = crate::keyring::set_password(&config.id, &db_password);
+        let _ = crate::keyring::set_ssh_password(&config.id, &ssh_password);
+        let _ = crate::keyring::set_ssh_passphrase(&config.id, &ssh_passphrase);
+
         self.db.execute(
             "INSERT OR REPLACE INTO connections (id, name, driver, host, port, database, username, password, ssl_mode, file_path, folder, use_ssh_tunnel, ssh_host, ssh_port, ssh_username, ssh_password, ssh_private_key, ssh_passphrase, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
             [
                 &config.id, &config.name, &config.driver, &config.host, &config.port.to_string(),
-                &config.database, &config.username, &config.password, &config.ssl_mode, &config.file_path,
+                &config.database, &config.username, "", &config.ssl_mode, &config.file_path,
                 &config.folder, &(config.use_ssh_tunnel as i32).to_string(), &config.ssh_host,
-                &config.ssh_port.to_string(), &config.ssh_username, &config.ssh_password,
-                &config.ssh_private_key, &config.ssh_passphrase, &config.created_at,
+                &config.ssh_port.to_string(), &config.ssh_username, "",
+                &config.ssh_private_key, "", &config.created_at,
             ],
         )?;
         Ok(())
@@ -139,9 +172,12 @@ impl AppState {
 
         rows.collect()
     }
-
     pub fn delete_connection(&self, id: &str) -> SqlResult<()> {
-        self.db.execute("DELETE FROM connections WHERE id = ?1", [id])?;
+        let _ = crate::keyring::delete_password(id);
+        let _ = crate::keyring::delete_ssh_password(id);
+        let _ = crate::keyring::delete_ssh_passphrase(id);
+        self.db
+            .execute("DELETE FROM connections WHERE id = ?1", [id])?;
         Ok(())
     }
 
@@ -174,7 +210,23 @@ impl AppState {
             })
         })?;
 
-        rows.next().transpose()
+        let mut config = match rows.next().transpose()? {
+            Some(c) => c,
+            None => return Ok(None),
+        };
+
+        // Retrieve sensitive fields from OS keyring
+        if let Some(pwd) = crate::keyring::get_password(id) {
+            config.password = pwd;
+        }
+        if let Some(pwd) = crate::keyring::get_ssh_password(id) {
+            config.ssh_password = pwd;
+        }
+        if let Some(pwd) = crate::keyring::get_ssh_passphrase(id) {
+            config.ssh_passphrase = pwd;
+        }
+
+        Ok(Some(config))
     }
     pub fn save_query_history(&self, connection_id: &str, query: &str) -> SqlResult<()> {
         let id = uuid::Uuid::new_v4().to_string();
@@ -230,7 +282,8 @@ impl AppState {
     }
 
     pub fn delete_bookmark(&self, id: &str) -> SqlResult<()> {
-        self.db.execute("DELETE FROM query_bookmarks WHERE id = ?1", [id])?;
+        self.db
+            .execute("DELETE FROM query_bookmarks WHERE id = ?1", [id])?;
         Ok(())
     }
 
@@ -242,17 +295,18 @@ impl AppState {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn get_setting(&self, key: &str) -> SqlResult<Option<String>> {
-        let mut stmt = self.db.prepare("SELECT value FROM app_settings WHERE key = ?1")?;
+        let mut stmt = self
+            .db
+            .prepare("SELECT value FROM app_settings WHERE key = ?1")?;
         let mut rows = stmt.query_map([key], |row| row.get(0))?;
         rows.next().transpose()
     }
 
     pub fn get_all_settings(&self) -> SqlResult<Vec<(String, String)>> {
         let mut stmt = self.db.prepare("SELECT key, value FROM app_settings")?;
-        let rows = stmt.query_map([], |row| {
-            Ok((row.get(0)?, row.get(1)?))
-        })?;
+        let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
         rows.collect()
     }
 }

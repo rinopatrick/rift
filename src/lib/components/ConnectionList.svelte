@@ -40,7 +40,7 @@
 <div class="p-2">
   <div class="flex items-center justify-between mb-2">
     <span class="text-[11px] font-medium text-[#6b6b6b] uppercase tracking-wider">Connections</span>
-    <button onclick={() => uiStore.showConnectionModal = true} class="text-[#00d4ff] hover:text-[#0ea5e9]">
+    <button aria-label="Add connection" onclick={() => uiStore.showConnectionModal = true} class="text-[#00d4ff] hover:text-[#0ea5e9]">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
     </button>
   </div>

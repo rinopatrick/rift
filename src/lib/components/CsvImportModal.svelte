@@ -119,12 +119,19 @@
   }
 </script>
 
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onclick={(e) => e.target === e.currentTarget && onClose()}>
+<div
+  class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+  role="button"
+  tabindex="0"
+  aria-label="Close import modal"
+  onclick={(e) => e.target === e.currentTarget && onClose()}
+  onkeydown={(e) => e.key === "Escape" && onClose()}
+>
   <div class="bg-[#141414] border border-[#2a2a2a] rounded-xl w-[640px] max-w-[90vw] max-h-[85vh] flex flex-col shadow-2xl">
     <!-- Header -->
     <div class="flex items-center justify-between px-5 py-3 border-b border-[#2a2a2a]">
       <h2 class="text-sm font-semibold text-[#e8e8e8]">Import CSV</h2>
-      <button onclick={onClose} class="text-[#6b6b6b] hover:text-[#e8e8e8]">
+      <button aria-label="Close modal" onclick={onClose} class="text-[#6b6b6b] hover:text-[#e8e8e8]">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
       </button>
     </div>
@@ -134,6 +141,9 @@
       {#if !csvContent}
         <!-- Drop zone -->
         <div
+          role="button"
+          tabindex="0"
+          aria-label="CSV drop zone"
           class="border-2 border-dashed rounded-lg p-10 text-center transition-colors {isDragging ? 'border-[#00d4ff] bg-[rgba(0,212,255,0.05)]' : 'border-[#2a2a2a] bg-[#0c0c0c]' }"
           ondragover={(e) => { e.preventDefault(); isDragging = true; }}
           ondragleave={() => isDragging = false}
@@ -150,8 +160,9 @@
       {:else}
         <!-- Table name -->
         <div>
-          <label class="block text-[11px] text-[#6b6b6b] uppercase tracking-wider mb-1.5">Table Name</label>
+          <label for="csv-table-name" class="block text-[11px] text-[#6b6b6b] uppercase tracking-wider mb-1.5">Table Name</label>
           <input
+            id="csv-table-name"
             bind:value={tableName}
             class="w-full bg-[#0c0c0c] border border-[#2a2a2a] rounded px-3 py-2 text-[12px] text-[#e8e8e8] outline-none focus:border-[#00d4ff]"
             placeholder="my_table"
@@ -161,7 +172,7 @@
         <!-- Preview -->
         <div>
           <div class="flex items-center justify-between mb-1.5">
-            <label class="text-[11px] text-[#6b6b6b] uppercase tracking-wider">Preview ({previewRows.length} rows)</label>
+            <span class="text-[11px] text-[#6b6b6b] uppercase tracking-wider">Preview ({previewRows.length} rows)</span>
             <button onclick={() => { csvContent = ""; fileName = ""; tableName = ""; previewRows = []; previewHeaders = []; }} class="text-[10px] text-[#4a4a4a] hover:text-[#ef4444]">Clear</button>
           </div>
           <div class="border border-[#2a2a2a] rounded overflow-auto max-h-56">
