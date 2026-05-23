@@ -1,15 +1,18 @@
 use std::sync::Mutex;
+#[cfg(not(test))]
 use tauri::Manager;
 
 mod commands;
 mod db;
 mod keyring;
+mod plugin;
 mod schema;
 mod state;
 
 pub struct AppState(Mutex<state::AppState>);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+#[cfg(not(test))]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -49,9 +52,14 @@ pub fn run() {
             commands::profile_query,
             commands::get_foreign_keys,
             commands::diff_schemas,
+            commands::list_plugins,
+            commands::read_plugin,
             commands::save_setting,
             commands::get_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+#[cfg(test)]
+pub fn run() {}

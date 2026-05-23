@@ -7,6 +7,7 @@ use crate::AppState;
 use mysql_async::prelude::Queryable;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tauri::Manager;
 use tauri::State;
 use tokio::sync::Mutex as AsyncMutex;
 
@@ -79,6 +80,16 @@ pub fn save_connection(
     state: State<AppState>,
     config: ConnectionConfig,
 ) -> Result<ConnectionInfo, String> {
+    crate::keyring::set_password(&config.id, &config.password).map_err(|e| {
+        format!("Failed to store database password in OS keyring: {}", e)
+    })?;
+    crate::keyring::set_ssh_password(&config.id, &config.ssh_password).map_err(|e| {
+        format!("Failed to store SSH password in OS keyring: {}", e)
+    })?;
+    crate::keyring::set_ssh_passphrase(&config.id, &config.ssh_passphrase).map_err(|e| {
+        format!("Failed to store SSH passphrase in OS keyring: {}", e)
+    })?;
+
     let state = state.0.lock().map_err(|e| e.to_string())?;
     state.save_connection(&config).map_err(|e| e.to_string())?;
     Ok(config.into())
@@ -92,8 +103,27 @@ pub fn get_connections(state: State<AppState>) -> Result<Vec<ConnectionInfo>, St
 
 #[tauri::command]
 pub fn delete_connection(state: State<AppState>, id: String) -> Result<(), String> {
+    crate::keyring::delete_password(&id)
+        .map_err(|e| format!("Failed to delete database password from OS keyring: {}", e))?;
+    crate::keyring::delete_ssh_password(&id)
+        .map_err(|e| format!("Failed to delete SSH password from OS keyring: {}", e))?;
+    crate::keyring::delete_ssh_passphrase(&id)
+        .map_err(|e| format!("Failed to delete SSH passphrase from OS keyring: {}", e))?;
+
     let state = state.0.lock().map_err(|e| e.to_string())?;
     state.delete_connection(&id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_plugins(app: tauri::AppHandle) -> Result<Vec<crate::plugin::PluginInfo>, String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    crate::plugin::list_plugins(&app_dir)
+}
+
+#[tauri::command]
+pub fn read_plugin(app: tauri::AppHandle, filename: String) -> Result<Vec<u8>, String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    crate::plugin::read_plugin(&app_dir, &filename)
 }
 
 #[tauri::command]

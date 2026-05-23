@@ -122,15 +122,6 @@ impl AppState {
     }
 
     pub fn save_connection(&self, config: &ConnectionConfig) -> SqlResult<()> {
-        // Store sensitive fields in OS keyring, not SQLite
-        let db_password = config.password.clone();
-        let ssh_password = config.ssh_password.clone();
-        let ssh_passphrase = config.ssh_passphrase.clone();
-
-        let _ = crate::keyring::set_password(&config.id, &db_password);
-        let _ = crate::keyring::set_ssh_password(&config.id, &ssh_password);
-        let _ = crate::keyring::set_ssh_passphrase(&config.id, &ssh_passphrase);
-
         self.db.execute(
             "INSERT OR REPLACE INTO connections (id, name, driver, host, port, database, username, password, ssl_mode, file_path, folder, use_ssh_tunnel, ssh_host, ssh_port, ssh_username, ssh_password, ssh_private_key, ssh_passphrase, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
@@ -173,9 +164,6 @@ impl AppState {
         rows.collect()
     }
     pub fn delete_connection(&self, id: &str) -> SqlResult<()> {
-        let _ = crate::keyring::delete_password(id);
-        let _ = crate::keyring::delete_ssh_password(id);
-        let _ = crate::keyring::delete_ssh_passphrase(id);
         self.db
             .execute("DELETE FROM connections WHERE id = ?1", [id])?;
         Ok(())
