@@ -1,3 +1,5 @@
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
 <div align="center">
 
 <img src="https://raw.githubusercontent.com/rinopatrick/rift/main/src-tauri/icons/icon.png" width="120" alt="Rift" />
@@ -228,3 +230,13 @@ Your support keeps the project alive and helps us ship faster.
 Made with Rust and caffeine.
 
 </div>
+
+## Production-readiness status
+
+Current state: **engineering sample / pre-production**.
+
+Recommended next steps:
+1. Add CI checks (tests + lint) on every push/PR
+2. Add release/versioning policy
+3. Add deployment/runtime hardening docs
+4. Add monitoring and operational runbook
