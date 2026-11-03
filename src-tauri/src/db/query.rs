@@ -15,13 +15,16 @@ pub struct ColumnInfo {
     pub data_type: String,
 }
 
-pub async fn execute_query(
+
+pub async fn execute_query_with_limit(
     client: &tokio_postgres::Client,
     sql: &str,
+    limit: usize,
 ) -> Result<QueryResult, tokio_postgres::Error> {
     let start = std::time::Instant::now();
-
-    let rows = client.query(sql, &[]).await?;
+    let limit = limit.clamp(1, MAX_ROW_LIMIT);
+    let limited_sql = apply_row_limit(sql, limit);
+    let rows = client.query(limited_sql.as_str(), &[]).await?;
     let execution_time_ms = start.elapsed().as_millis() as u64;
 
     if rows.is_empty() {
@@ -62,6 +65,15 @@ pub async fn execute_query(
     })
 }
 
+pub fn apply_row_limit(sql: &str, limit: usize) -> String {
+    let trimmed = sql.trim_end().trim_end_matches(';').trim_end();
+    let upper = trimmed.to_uppercase();
+    if upper.contains("LIMIT") {
+        return trimmed.to_string();
+    }
+    format!("{trimmed} LIMIT {limit}")
+}
+
 fn row_to_string(row: &Row, idx: usize) -> Option<String> {
     if let Ok(val) = row.try_get::<_, Option<String>>(idx) {
         return val;
@@ -82,4 +94,57 @@ fn row_to_string(row: &Row, idx: usize) -> Option<String> {
         return val.map(|v| v.to_string());
     }
     Some("[unsupported]".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn keeps_existing_limit() {
+        assert_eq!(
+            apply_row_limit("SELECT * FROM t LIMIT 10", 5000),
+            "SELECT * FROM t LIMIT 10"
+        );
+    }
+
+    #[test]
+    fn appends_limit_without_one() {
+        assert_eq!(
+            apply_row_limit("SELECT * FROM t", 100),
+            "SELECT * FROM t LIMIT 100"
+        );
+    }
+
+    #[test]
+    fn strips_trailing_semicolon() {
+        assert_eq!(
+            apply_row_limit("SELECT * FROM t;", 100),
+            "SELECT * FROM t LIMIT 100"
+        );
+    }
+
+    #[test]
+    fn detects_limit_case_insensitively() {
+        assert_eq!(
+            apply_row_limit("select * from t limit 5", 5000),
+            "select * from t limit 5"
+        );
+    }
+
+    #[test]
+    fn clamps_limit_bounds() {
+        assert!(MAX_ROW_LIMIT >= DEFAULT_ROW_LIMIT);
+        assert!(DEFAULT_ROW_LIMIT > 0);
+    }
+}
+
+pub const DEFAULT_ROW_LIMIT: usize = 5000;
+pub const MAX_ROW_LIMIT: usize = 50000;
+
+pub async fn execute_query(
+    client: &tokio_postgres::Client,
+    sql: &str,
+) -> Result<QueryResult, tokio_postgres::Error> {
+    execute_query_with_limit(client, sql, DEFAULT_ROW_LIMIT).await
 }

@@ -178,6 +178,7 @@ pub async fn execute_sql(
     connection_id: String,
     sql: String,
     query_id: String,
+    timeout_secs: Option<u64>,
 ) -> Result<crate::db::query::QueryResult, String> {
     // Clone driver and release pool lock so other operations aren't blocked
     let driver = {
@@ -205,6 +206,9 @@ pub async fn execute_sql(
                 }
             }
             let sql = sql.clone();
+            let timeout_ms = timeout_secs.unwrap_or(30).clamp(1, 600) * 1000;
+            let timeout_sql = format!("SET LOCAL statement_timeout = {}", timeout_ms);
+            let _ = client.execute(timeout_sql.as_str(), &[]).await;
             handle = tokio::spawn(async move {
                 crate::db::query::execute_query(&client, &sql)
                     .await
@@ -293,6 +297,7 @@ pub async fn execute_multi_sql(
     connection_id: String,
     sql: String,
     query_id: String,
+    timeout_secs: Option<u64>,
 ) -> Result<Vec<crate::db::query::QueryResult>, String> {
     let statements = split_sql_statements(&sql);
     if statements.is_empty() {
@@ -308,6 +313,13 @@ pub async fn execute_multi_sql(
         }
     };
 
+    let timeout_ms = timeout_secs.unwrap_or(30).clamp(1, 600) * 1000;
+    if let DriverWrapper::Postgres(pool) = &driver {
+        if let Ok(client) = pool.get().await {
+            let timeout_sql = format!("SET statement_timeout = {}", timeout_ms);
+            let _ = client.execute(timeout_sql.as_str(), &[]).await;
+        }
+    }
     let handle = tokio::spawn(async move {
         let mut results = Vec::with_capacity(statements.len());
         for stmt in statements {
@@ -465,30 +477,15 @@ pub async fn export_csv(
     let driver = pools.get(&connection_id).ok_or("Not connected")?;
     let result = driver.execute(&sql).await?;
 
-    let mut csv = String::new();
-    csv.push_str(
-        &result
-            .columns
-            .iter()
-            .map(|c| c.name.clone())
-            .collect::<Vec<_>>()
-            .join(","),
-    );
-    csv.push('\n');
-
+    let mut wtr = csv::WriterBuilder::new().from_writer(Vec::new());
+    let headers: Vec<&str> = result.columns.iter().map(|c| c.name.as_str()).collect();
+    wtr.write_record(headers).map_err(|e| e.to_string())?;
     for row in &result.rows {
-        let cells: Vec<String> = row
-            .iter()
-            .map(|c| match c {
-                Some(v) => format!("\"{}\"", v.replace('\"', "\"\"")),
-                None => "\"\"".to_string(),
-            })
-            .collect();
-        csv.push_str(&cells.join(","));
-        csv.push('\n');
+        let cells: Vec<&str> = row.iter().map(|c| c.as_deref().unwrap_or("")).collect();
+        wtr.write_record(cells).map_err(|e| e.to_string())?;
     }
-
-    Ok(csv)
+    let bytes = wtr.into_inner().map_err(|e| e.to_string())?;
+    String::from_utf8(bytes).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

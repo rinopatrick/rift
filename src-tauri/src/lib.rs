@@ -62,4 +62,5 @@ pub fn run() {
 }
 
 #[cfg(test)]
+#[allow(dead_code)]
 pub fn run() {}

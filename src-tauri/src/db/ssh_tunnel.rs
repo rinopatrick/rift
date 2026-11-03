@@ -19,7 +19,19 @@ pub enum SshTunnelError {
     Ssh(String),
 }
 
-struct ClientHandler;
+struct ClientHandler {
+    expected_fingerprint: Option<String>,
+}
+
+impl ClientHandler {
+    fn fingerprint(key: &russh::keys::PublicKey) -> String {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut h = DefaultHasher::new();
+        key.algorithm().as_ref().hash(&mut h);
+        format!("{:x}", h.finish())
+    }
+}
 
 impl Handler for ClientHandler {
     type Error = russh::Error;
@@ -27,9 +39,16 @@ impl Handler for ClientHandler {
     #[allow(clippy::manual_async_fn)]
     fn check_server_key(
         &mut self,
-        _server_public_key: &russh::keys::PublicKey,
+        server_public_key: &russh::keys::PublicKey,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
-        async { Ok(true) }
+        let expected = self.expected_fingerprint.clone();
+        let actual = Self::fingerprint(server_public_key);
+        async move {
+            match expected {
+                Some(fp) => Ok(fp == actual),
+                None => Ok(false),
+            }
+        }
     }
 
     #[allow(clippy::manual_async_fn)]
@@ -109,13 +128,22 @@ impl SshTunnel {
         ssh_passphrase: &str,
         target_host: &str,
         target_port: u16,
+        expected_host_key_fingerprint: Option<String>,
     ) -> Result<Self, SshTunnelError> {
+        let fingerprint = expected_host_key_fingerprint.filter(|s| !s.is_empty());
+        if fingerprint.is_none() {
+            return Err(SshTunnelError::Ssh(
+                "SSH host key fingerprint is required".to_string(),
+            ));
+        }
         let config = client::Config {
             inactivity_timeout: Some(std::time::Duration::from_secs(30)),
             ..Default::default()
         };
         let config = Arc::new(config);
-        let sh = ClientHandler;
+        let sh = ClientHandler {
+            expected_fingerprint: fingerprint,
+        };
 
         let mut session = client::connect(config, (ssh_host, ssh_port), sh)
             .await
