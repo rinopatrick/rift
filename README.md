@@ -68,7 +68,7 @@ Rift is the open source alternative that doesn't compromise.
 - [x] **SSH tunnel** — connect through bastion hosts
 - [x] **Query profiler** — performance analysis with timing breakdown
 - [x] **Multi-resultset support** — multiple SELECT results in one query
-- [ ] **Database migration diff view** — compare schemas
+- [x] **Database migration diff view** — compare schemas + generated migration SQL
 
 ---
 
@@ -182,7 +182,7 @@ cargo build
 - [x] Query profiler with bottleneck detection
 - [x] Multi-resultset support
 - [ ] Database migration diff view
-- [ ] Connection timeout / SSL error human-readable messages
+- [x] Connection timeout / SSL error human-readable messages
 
 ### Future
 - [ ] Collaboration / shared connections

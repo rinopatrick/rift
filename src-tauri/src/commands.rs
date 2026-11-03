@@ -1,6 +1,6 @@
 use crate::db::connection::{ConnectionConfig, ConnectionInfo};
 use crate::db::driver::DriverWrapper;
-use crate::db::error::humanize_error;
+use crate::db::error::{humanize_error, TimeoutHint};
 use crate::db::pool::{create_mysql_pool, create_pool};
 use crate::db::ssh_tunnel::SshTunnel;
 use crate::AppState;
@@ -63,10 +63,9 @@ pub async fn test_connection(config: ConnectionConfig) -> Result<bool, String> {
         Ok(true)
     } else {
         let pool = create_pool(&config).map_err(|e| humanize_error(&e.to_string()))?;
-        let client = pool
-            .get()
-            .await
-            .map_err(|e| humanize_error(&e.to_string()))?;
+        let client = pool.get().await.map_err(|e| {
+            crate::db::error::humanize_error_with_hint(&e.to_string(), Some(TimeoutHint::Connect))
+        })?;
         client
             .execute("SELECT 1", &[])
             .await
@@ -152,10 +151,9 @@ pub async fn connect_to_database(
         DriverWrapper::Mysql(pool)
     } else {
         let pool = create_pool(&config).map_err(|e| humanize_error(&e.to_string()))?;
-        let client = pool
-            .get()
-            .await
-            .map_err(|e| humanize_error(&e.to_string()))?;
+        let client = pool.get().await.map_err(|e| {
+            crate::db::error::humanize_error_with_hint(&e.to_string(), Some(TimeoutHint::Connect))
+        })?;
         client
             .execute("SELECT 1", &[])
             .await
@@ -202,13 +200,19 @@ pub async fn execute_sql(
                     }
                 }
                 let sql = sql.clone();
-                let timeout_ms = timeout_secs.unwrap_or(30).clamp(1, 600) * 1000;
-                let timeout_sql = format!("SET LOCAL statement_timeout = {}", timeout_ms);
+                let timeout_secs = timeout_secs.unwrap_or(30).clamp(1, 600);
+                let timeout_ms = timeout_secs * 1000;
+                let timeout_sql = format!("SET LOCAL statement_timeout = {timeout_ms}");
                 let _ = client.execute(timeout_sql.as_str(), &[]).await;
                 tokio::spawn(async move {
                     crate::db::query::execute_query(&client, &sql)
                         .await
-                        .map_err(|e| humanize_error(&e.to_string()))
+                        .map_err(|e| {
+                            crate::db::error::humanize_error_with_hint(
+                                &e.to_string(),
+                                Some(TimeoutHint::Statement { timeout_secs }),
+                            )
+                        })
                 })
             }
             _ => tokio::spawn(async move { driver.execute(&sql).await }),
@@ -307,10 +311,11 @@ pub async fn execute_multi_sql(
         }
     };
 
-    let timeout_ms = timeout_secs.unwrap_or(30).clamp(1, 600) * 1000;
+    let timeout_secs = timeout_secs.unwrap_or(30).clamp(1, 600);
+    let timeout_ms = timeout_secs * 1000;
     if let DriverWrapper::Postgres(pool) = &driver {
         if let Ok(client) = pool.get().await {
-            let timeout_sql = format!("SET statement_timeout = {}", timeout_ms);
+            let timeout_sql = format!("SET statement_timeout = {timeout_ms}");
             let _ = client.execute(timeout_sql.as_str(), &[]).await;
         }
     }
@@ -319,7 +324,12 @@ pub async fn execute_multi_sql(
         for stmt in statements {
             match driver.execute(&stmt).await {
                 Ok(result) => results.push(result),
-                Err(e) => return Err(e),
+                Err(e) => {
+                    return Err(crate::db::error::humanize_error_with_hint(
+                        &e,
+                        Some(TimeoutHint::Statement { timeout_secs }),
+                    ));
+                }
             }
         }
         Ok(results)
@@ -792,6 +802,36 @@ pub async fn diff_schemas(
         }
         _ => Err("Schema diff is only supported for PostgreSQL connections".to_string()),
     }
+}
+
+#[tauri::command]
+pub async fn diff_schemas_migration_sql(
+    pools: State<'_, ConnectionPools>,
+    source_connection_id: String,
+    target_connection_id: String,
+) -> Result<String, String> {
+    let (source_driver, target_driver) = {
+        let pools = pools.0.lock().await;
+        let source = pools
+            .get(&source_connection_id)
+            .ok_or("Source not connected")?
+            .clone();
+        let target = pools
+            .get(&target_connection_id)
+            .ok_or("Target not connected")?
+            .clone();
+        (source, target)
+    };
+
+    let diff = match (&source_driver, &target_driver) {
+        (DriverWrapper::Postgres(source_pool), DriverWrapper::Postgres(target_pool)) => {
+            let source_client = source_pool.get().await.map_err(|e| e.to_string())?;
+            let target_client = target_pool.get().await.map_err(|e| e.to_string())?;
+            crate::db::schema_diff::diff_postgres_schemas(&source_client, &target_client).await?
+        }
+        _ => return Err("Schema diff is only supported for PostgreSQL connections".to_string()),
+    };
+    crate::db::schema_diff::render_migration_sql(&diff)
 }
 
 #[tauri::command]

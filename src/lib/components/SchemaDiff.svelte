@@ -8,11 +8,15 @@
   let loading = $state(false);
   let error = $state('');
   let result: any = $state(null);
+  let migrationSql = $state('');
+  let migrationLoading = $state(false);
+  let copied = $state(false);
 
   async function runDiff() {
     if (!sourceId || !targetId) return;
     loading = true;
     error = '';
+    migrationSql = '';
     try {
       result = await invoke('diff_schemas', {
         sourceConnectionId: sourceId,
@@ -22,6 +26,28 @@
       error = e.toString();
     }
     loading = false;
+  }
+
+  async function generateMigration() {
+    if (!sourceId || !targetId) return;
+    migrationLoading = true;
+    error = '';
+    try {
+      migrationSql = await invoke('diff_schemas_migration_sql', {
+        sourceConnectionId: sourceId,
+        targetConnectionId: targetId,
+      }) as string;
+    } catch (e: any) {
+      error = e.toString();
+    }
+    migrationLoading = false;
+  }
+
+  async function copyMigration() {
+    if (!migrationSql) return;
+    await navigator.clipboard.writeText(migrationSql);
+    copied = true;
+    setTimeout(() => (copied = false), 1500);
   }
 
   const pgConns = $derived(connections.filter(c => c.driver === 'postgres'));
@@ -57,7 +83,29 @@
     >
       {loading ? 'Comparing...' : 'Compare'}
     </button>
+    <button
+      onclick={generateMigration}
+      disabled={!sourceId || !targetId || migrationLoading}
+      class="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded text-sm font-medium"
+    >
+      {migrationLoading ? 'Generating...' : 'Migration SQL'}
+    </button>
   </div>
+
+  {#if migrationSql}
+    <div class="mb-6 border border-emerald-800/60 bg-emerald-950/20 rounded overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-2 border-b border-emerald-800/40">
+        <span class="text-xs font-medium text-emerald-400">Migration SQL (source → target)</span>
+        <button
+          onclick={copyMigration}
+          class="text-[11px] px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white"
+        >
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      </div>
+      <pre class="p-4 text-xs font-mono text-gray-200 whitespace-pre-wrap max-h-64 overflow-auto">{migrationSql}</pre>
+    </div>
+  {/if}
 
   {#if error}
     <div class="bg-red-900/30 border border-red-800 text-red-300 px-4 py-3 rounded mb-4 text-sm">{error}</div>
