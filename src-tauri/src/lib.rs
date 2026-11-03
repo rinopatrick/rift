@@ -101,7 +101,6 @@ mod test_entry {
         let _ = commands::get_settings;
         let _ = db::connection::ConnectionConfig::new;
         let _ = db::pool::create_pool;
-        let _ = db::pool::resolve_ssl_policy;
         let _ = db::pool::create_mysql_pool;
         let _ = db::query::execute_query;
         let _ = db::error::humanize_error;
