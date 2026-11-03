@@ -185,48 +185,120 @@ pub async fn diff_postgres_schemas(
 pub fn render_migration_sql(diff: &SchemaDiff) -> Result<String, String> {
     use crate::db::idents::quote_ident;
 
-    fn safe_default(raw: &str) -> Option<String> {
+    /// Validate a PostgreSQL type name from `information_schema` before
+    /// interpolating it into generated DDL. Allows plain names,
+    /// schema-qualified names, `varchar(n)` / `numeric(p,s)` precision,
+    /// and `[]` array suffixes. Anything else fails loudly.
+    fn valid_type_name(raw: &str) -> bool {
         let t = raw.trim();
-        if t.is_empty() {
+        if t.is_empty() || t.len() > 128 || t.contains(';') {
+            return false;
+        }
+        let mut rest = t;
+        if let Some(stripped) = rest.strip_suffix("[]") {
+            rest = stripped.trim_end();
+        }
+        let base = match rest.find('(') {
+            Some(open) => {
+                let Some(close) = rest.rfind(')') else {
+                    return false;
+                };
+                if close != rest.len() - 1 {
+                    return false;
+                }
+                let params = &rest[open + 1..close];
+                if params.split(',').any(|p| {
+                    let p = p.trim();
+                    p.is_empty() || p.len() > 10 || !p.chars().all(|c| c.is_ascii_digit())
+                }) {
+                    return false;
+                }
+                &rest[..open]
+            }
+            None => rest,
+        };
+        let dots = base.matches('.').count();
+        if dots > 1 {
+            return false;
+        }
+        for part in base.split('.') {
+            let part = part.trim();
+            if part.is_empty()
+                || !part
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '_' || c == ' ')
+            {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Validate a column default from `information_schema` before
+    /// interpolating it into generated DDL. The whole string must match
+    /// one safe shape, so a hostile default cannot smuggle a second
+    /// statement past a prefix check.
+    fn safe_default(raw: &str) -> Option<String> {
+        fn quoted_literal(s: &str) -> bool {
+            if s.len() < 2 || !s.starts_with('\'') || !s.ends_with('\'') {
+                return false;
+            }
+            let inner = &s[1..s.len() - 1];
+            if inner.contains(';') || inner.contains("--") || inner.contains("/*") {
+                return false;
+            }
+            // Only `''` escapes allowed; a lone backslash-quote ends the literal.
+            let mut chars = inner.chars();
+            while let Some(c) = chars.next() {
+                if c == '\'' && chars.next() != Some('\'') {
+                    return false;
+                }
+            }
+            true
+        }
+
+        fn bare_atom(s: &str) -> bool {
+            let lower = s.to_lowercase();
+            s.parse::<i64>().is_ok()
+                || s.parse::<f64>().is_ok()
+                || ["true", "false", "null"].contains(&lower.as_str())
+        }
+
+        let t = raw.trim();
+        if t.is_empty() || t.contains(';') {
             return None;
         }
         let lower = t.to_lowercase();
-        let safe_literal = (t.starts_with('\'') && t.ends_with('\'') && t.len() >= 2)
-            || t.parse::<i64>().is_ok()
-            || t.parse::<f64>().is_ok()
-            || ["true", "false", "null"].contains(&lower.as_str())
-            || lower.starts_with("null::")
-            || lower.starts_with("now()")
-            || lower.starts_with("current_timestamp")
-            || lower.starts_with("current_date")
-            || lower.starts_with("current_time");
-        if safe_literal {
+        // Zero-argument clock functions with nothing trailing.
+        if ["now()", "current_timestamp", "current_date", "current_time"].contains(&lower.as_str())
+        {
             return Some(t.to_string());
         }
-        // `type 'value'` casts like `0::numeric`, `'x'::character varying`
-        if t.contains("::") {
-            let mut parts = t.splitn(2, "::");
-            let head = parts.next().unwrap_or("").trim();
-            let tail = parts.next().unwrap_or("").trim();
-            if !tail.is_empty()
-                && tail.chars().all(|c| {
-                    c.is_alphanumeric() || c == '_' || c == ' ' || c == '(' || c == ')' || c == ','
-                })
-            {
-                let head_ok = (head.starts_with('\'') && head.ends_with('\'') && head.len() >= 2)
-                    || head.parse::<i64>().is_ok()
-                    || head.parse::<f64>().is_ok()
-                    || ["true", "false", "null"].contains(&head.to_lowercase().as_str());
-                if head_ok {
-                    return Some(t.to_string());
-                }
+        // Optional single `::type` cast; head must be a full literal or atom.
+        let (head, tail) = match t.split_once("::") {
+            Some((h, tail)) => (h.trim(), Some(tail.trim())),
+            None => (t, None),
+        };
+        if let Some(ty) = tail {
+            if ty.is_empty() || !valid_type_name(ty) {
+                return None;
             }
+            if !(quoted_literal(head) || bare_atom(head)) {
+                return None;
+            }
+            return Some(t.to_string());
+        }
+        if quoted_literal(head) || bare_atom(head) {
+            return Some(t.to_string());
         }
         None
     }
 
     fn column_def(col: &ColumnDiff) -> Result<String, String> {
-        let mut def = format!("{} {}", quote_ident(&col.name)?, col.data_type);
+        if !valid_type_name(&col.data_type) {
+            return Err(format!("Unsupported column type: {}", col.data_type));
+        }
+        let mut def = format!("{} {}", quote_ident(&col.name)?, col.data_type.trim());
         if !col.is_nullable {
             def.push_str(" NOT NULL");
         }
@@ -273,9 +345,14 @@ pub fn render_migration_sql(diff: &SchemaDiff) -> Result<String, String> {
         }
         for change in &m.modified_columns {
             let c = quote_ident(&change.name)?;
+            if !valid_type_name(&change.new_type) {
+                return Err(format!("Unsupported column type: {}", change.new_type));
+            }
             out.push(format!(
                 "ALTER TABLE {} ALTER COLUMN {} TYPE {};",
-                t, c, change.new_type
+                t,
+                c,
+                change.new_type.trim()
             ));
             if change.old_nullable != change.new_nullable {
                 if change.new_nullable {
@@ -342,6 +419,79 @@ mod tests {
         let sql = render_migration_sql(&diff).unwrap();
         assert!(!sql.contains("SELECT"), "{sql}");
         assert!(sql.contains("\"c\" text"), "{sql}");
+    }
+
+    #[test]
+    fn drops_quote_breakout_default() {
+        for payload in [
+            "'; DROP TABLE users; --'",
+            "now()); DROP TABLE users; --",
+            "null::text; DROP TABLE users; --",
+            "'a'; DROP TABLE x; --'::text",
+            "'it''s; DROP TABLE users; --'",
+        ] {
+            let diff = SchemaDiff {
+                added_tables: vec![TableDiff {
+                    name: "t".to_string(),
+                    columns: vec![col("c", "text", true, Some(payload))],
+                }],
+                removed_tables: vec![],
+                modified_tables: vec![],
+            };
+            let sql = render_migration_sql(&diff).unwrap();
+            assert!(!sql.contains("DROP TABLE users"), "{payload} leaked: {sql}");
+            assert!(!sql.contains("DROP TABLE x"), "{payload} leaked: {sql}");
+            assert!(!sql.contains("DEFAULT"), "{payload} leaked: {sql}");
+        }
+    }
+
+    #[test]
+    fn keeps_escaped_quote_literal() {
+        let diff = SchemaDiff {
+            added_tables: vec![TableDiff {
+                name: "t".to_string(),
+                columns: vec![col("c", "text", true, Some("'it''s'"))],
+            }],
+            removed_tables: vec![],
+            modified_tables: vec![],
+        };
+        let sql = render_migration_sql(&diff).unwrap();
+        assert!(sql.contains("DEFAULT 'it''s'"), "{sql}");
+    }
+
+    #[test]
+    fn rejects_hostile_type_names() {
+        for ty in ["text); DROP TABLE users; --", "text; DROP TABLE users", ""] {
+            let diff = SchemaDiff {
+                added_tables: vec![TableDiff {
+                    name: "t".to_string(),
+                    columns: vec![col("c", ty, true, None)],
+                }],
+                removed_tables: vec![],
+                modified_tables: vec![],
+            };
+            assert!(render_migration_sql(&diff).is_err(), "{ty} accepted");
+        }
+    }
+
+    #[test]
+    fn accepts_qualified_and_sized_types() {
+        let diff = SchemaDiff {
+            added_tables: vec![TableDiff {
+                name: "t".to_string(),
+                columns: vec![
+                    col("a", "character varying(255)", true, None),
+                    col("b", "numeric(10,2)", true, None),
+                    col("c", "pg_catalog.text[]", true, None),
+                ],
+            }],
+            removed_tables: vec![],
+            modified_tables: vec![],
+        };
+        let sql = render_migration_sql(&diff).unwrap();
+        assert!(sql.contains("character varying(255)"), "{sql}");
+        assert!(sql.contains("numeric(10,2)"), "{sql}");
+        assert!(sql.contains("pg_catalog.text[]"), "{sql}");
     }
 
     #[test]
