@@ -12,7 +12,7 @@ pub fn quote_ident(name: &str) -> Result<String, String> {
 }
 
 pub fn quote_mysql_ident(name: &str) -> Result<String, String> {
-    if name.is_empty() || name.len() > 128 {
+    if name.is_empty() || name.len() > 64 {
         return Err(format!("Invalid identifier: {name}"));
     }
     if !name
@@ -48,5 +48,16 @@ mod tests {
         assert!(quote_mysql_ident("a`b").is_err());
         assert!(quote_mysql_ident("a-b").is_err());
         assert_eq!(quote_mysql_ident("users").unwrap(), "`users`");
+    }
+
+    #[test]
+    fn mysql_rejects_backslash_escape_injection() {
+        assert!(quote_mysql_ident("a\\").is_err());
+        assert!(quote_mysql_ident("db\\'; DROP TABLE x; --").is_err());
+    }
+
+    #[test]
+    fn mysql_allows_dollar_and_underscore() {
+        assert_eq!(quote_mysql_ident("my$table_1").unwrap(), "`my$table_1`");
     }
 }

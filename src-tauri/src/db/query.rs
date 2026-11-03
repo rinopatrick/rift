@@ -15,6 +15,12 @@ pub struct ColumnInfo {
     pub data_type: String,
 }
 
+pub const DEFAULT_ROW_LIMIT: usize = 5000;
+pub const MAX_ROW_LIMIT: usize = 50000;
+
+pub fn clamp_limit(limit: usize) -> usize {
+    limit.clamp(1, MAX_ROW_LIMIT)
+}
 
 pub async fn execute_query_with_limit(
     client: &tokio_postgres::Client,
@@ -22,7 +28,7 @@ pub async fn execute_query_with_limit(
     limit: usize,
 ) -> Result<QueryResult, tokio_postgres::Error> {
     let start = std::time::Instant::now();
-    let limit = limit.clamp(1, MAX_ROW_LIMIT);
+    let limit = clamp_limit(limit);
     let limited_sql = apply_row_limit(sql, limit);
     let rows = client.query(limited_sql.as_str(), &[]).await?;
     let execution_time_ms = start.elapsed().as_millis() as u64;
@@ -96,6 +102,13 @@ fn row_to_string(row: &Row, idx: usize) -> Option<String> {
     Some("[unsupported]".to_string())
 }
 
+pub async fn execute_query(
+    client: &tokio_postgres::Client,
+    sql: &str,
+) -> Result<QueryResult, tokio_postgres::Error> {
+    execute_query_with_limit(client, sql, DEFAULT_ROW_LIMIT).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -134,17 +147,8 @@ mod tests {
 
     #[test]
     fn clamps_limit_bounds() {
-        assert!(MAX_ROW_LIMIT >= DEFAULT_ROW_LIMIT);
-        assert!(DEFAULT_ROW_LIMIT > 0);
+        assert_eq!(clamp_limit(0), 1);
+        assert_eq!(clamp_limit(100), 100);
+        assert_eq!(clamp_limit(usize::MAX), MAX_ROW_LIMIT);
     }
-}
-
-pub const DEFAULT_ROW_LIMIT: usize = 5000;
-pub const MAX_ROW_LIMIT: usize = 50000;
-
-pub async fn execute_query(
-    client: &tokio_postgres::Client,
-    sql: &str,
-) -> Result<QueryResult, tokio_postgres::Error> {
-    execute_query_with_limit(client, sql, DEFAULT_ROW_LIMIT).await
 }
