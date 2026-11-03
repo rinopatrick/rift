@@ -27,7 +27,7 @@ export function createQueryStore() {
     tabs = tabs.map((t) => (t.id === id ? { ...t, sql } : t));
   }
 
-  async function executeQuery(connectionId: string, tabId: string) {
+  async function executeQuery(connectionId: string, tabId: string, timeoutSecs?: number) {
     const tab = tabs.find((t) => t.id === tabId);
     if (!tab || !tab.sql.trim()) return;
 
@@ -42,6 +42,7 @@ export function createQueryStore() {
         connectionId,
         sql: tab.sql,
         queryId,
+        timeoutSecs: timeoutSecs ?? 30,
       });
       tabs = tabs.map((t) =>
         t.id === tabId ? { ...t, status: "idle" as const, results, queryId: undefined } : t

@@ -1,4 +1,5 @@
 use crate::db::error::humanize_error;
+use crate::db::idents::{quote_ident, quote_mysql_ident};
 use crate::db::query::{ColumnInfo, QueryResult};
 use crate::schema::{ColumnInfo as SchemaColumn, SchemaInfo, TableInfo};
 use mysql_async::prelude::Queryable;
@@ -29,8 +30,10 @@ impl DriverWrapper {
                     .get_conn()
                     .await
                     .map_err(|e| humanize_error(&e.to_string()))?;
+                let limited =
+                    crate::db::query::apply_row_limit(sql, crate::db::query::DEFAULT_ROW_LIMIT);
                 let mut result = conn
-                    .query_iter(sql)
+                    .query_iter(limited.as_str())
                     .await
                     .map_err(|e| humanize_error(&e.to_string()))?;
                 let cols: Vec<ColumnInfo> = result
@@ -43,6 +46,9 @@ impl DriverWrapper {
                     .collect();
                 let mut rows = Vec::new();
                 while let Ok(Some(row)) = result.next().await {
+                    if rows.len() >= crate::db::query::MAX_ROW_LIMIT {
+                        break;
+                    }
                     let mut cells = Vec::new();
                     for i in 0..cols.len() {
                         let val: Option<String> = row.get(i);
@@ -59,7 +65,8 @@ impl DriverWrapper {
             }
             DriverWrapper::Sqlite(path) => {
                 let path = path.clone();
-                let sql = sql.to_string();
+                let sql =
+                    crate::db::query::apply_row_limit(sql, crate::db::query::DEFAULT_ROW_LIMIT);
                 task::spawn_blocking(move || {
                     let conn = rusqlite::Connection::open(&path)
                         .map_err(|e| humanize_error(&e.to_string()))?;
@@ -117,10 +124,13 @@ impl DriverWrapper {
                 } else {
                     return Err("Could not determine current database".to_string());
                 };
+                // db_name comes from the server, not the user, but validate it anyway
+                // so a compromised/malicious server cannot inject SQL here.
+                quote_mysql_ident(&db_name)?;
 
                 let tables_sql = format!(
                     "SELECT table_name FROM information_schema.tables WHERE table_schema = '{}' AND table_type = 'BASE TABLE' ORDER BY table_name",
-                    db_name.replace('\'', "''")
+                    db_name.replace('\\', "\\\\").replace('\'', "''")
                 );
                 let table_rows: Vec<mysql_async::Row> =
                     conn.query(&tables_sql).await.map_err(|e| e.to_string())?;
@@ -128,10 +138,11 @@ impl DriverWrapper {
 
                 for table_row in table_rows {
                     let table_name: String = table_row.get(0).unwrap_or_default();
+                    quote_mysql_ident(&table_name)?;
                     let cols_sql = format!(
                         "SELECT column_name, data_type, is_nullable, column_default, column_key FROM information_schema.columns WHERE table_schema = '{}' AND table_name = '{}' ORDER BY ordinal_position",
-                        db_name.replace('\'', "''"),
-                        table_name.replace('\'', "''")
+                        db_name.replace('\\', "\\\\").replace('\'', "''"),
+                        table_name.replace('\\', "\\\\").replace('\'', "''")
                     );
                     let col_rows: Vec<mysql_async::Row> =
                         conn.query(&cols_sql).await.map_err(|e| e.to_string())?;
@@ -179,8 +190,9 @@ impl DriverWrapper {
                     }
                     let mut table_infos = Vec::new();
                     for table in tables {
+                        let quoted = quote_ident(&table).map_err(|e| e.to_string())?;
                         let mut stmt = conn
-                            .prepare(&format!("PRAGMA table_info({})", table))
+                            .prepare(&format!("PRAGMA table_info({})", quoted))
                             .map_err(|e| e.to_string())?;
                         let mut rows = stmt.query([]).map_err(|e| e.to_string())?;
                         let mut columns = Vec::new();
@@ -229,9 +241,10 @@ impl DriverWrapper {
                 } else {
                     return Ok(Vec::new());
                 };
+                quote_mysql_ident(&db_name)?;
                 let sql = format!(
                     "SELECT constraint_name, table_name, column_name, referenced_table_name, referenced_column_name FROM information_schema.key_column_usage WHERE table_schema = '{}' AND referenced_table_name IS NOT NULL",
-                    db_name.replace('\'', "''")
+                    db_name.replace('\\', "\\\\").replace('\'', "''")
                 );
                 let rows: Vec<mysql_async::Row> =
                     conn.query(&sql).await.map_err(|e| e.to_string())?;
@@ -267,8 +280,11 @@ impl DriverWrapper {
             DriverWrapper::Postgres(pool) => {
                 let client = pool.get().await.map_err(|e| e.to_string())?;
                 let sql = format!(
-                    r#"UPDATE "{}"."{}" SET "{}" = $1 WHERE "{}" = $2"#,
-                    schema, table, column, pk_column
+                    "UPDATE {}.{} SET {} = $1 WHERE {} = $2",
+                    quote_ident(schema)?,
+                    quote_ident(table)?,
+                    quote_ident(column)?,
+                    quote_ident(pk_column)?
                 );
                 client
                     .execute(&sql, &[&value, &pk_value])
@@ -279,8 +295,11 @@ impl DriverWrapper {
             DriverWrapper::Mysql(pool) => {
                 let mut conn = pool.get_conn().await.map_err(|e| e.to_string())?;
                 let sql = format!(
-                    "UPDATE `{}`.`{}` SET `{}` = ? WHERE `{}` = ?",
-                    schema, table, column, pk_column
+                    "UPDATE {}.{} SET {} = ? WHERE {} = ?",
+                    quote_mysql_ident(schema)?,
+                    quote_mysql_ident(table)?,
+                    quote_mysql_ident(column)?,
+                    quote_mysql_ident(pk_column)?
                 );
                 conn.exec_drop(&sql, (value, pk_value))
                     .await
@@ -289,17 +308,16 @@ impl DriverWrapper {
             }
             DriverWrapper::Sqlite(path) => {
                 let path = path.clone();
-                let _schema = schema.to_string();
-                let table = table.to_string();
-                let column = column.to_string();
+                let table_q = quote_ident(table)?;
+                let column_q = quote_ident(column)?;
+                let pk_column_q = quote_ident(pk_column)?;
                 let value = value.map(|s| s.to_string());
-                let pk_column = pk_column.to_string();
                 let pk_value = pk_value.to_string();
                 task::spawn_blocking(move || {
                     let conn = rusqlite::Connection::open(&path).map_err(|e| e.to_string())?;
                     let sql = format!(
-                        r#"UPDATE "{}" SET "{}" = ?1 WHERE "{}" = ?2"#,
-                        table, column, pk_column
+                        "UPDATE {} SET {} = ?1 WHERE {} = ?2",
+                        table_q, column_q, pk_column_q
                     );
                     conn.execute(&sql, rusqlite::params![value.as_deref(), pk_value.as_str()])
                         .map_err(|e| e.to_string())?;

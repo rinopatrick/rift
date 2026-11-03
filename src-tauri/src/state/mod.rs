@@ -24,6 +24,7 @@ pub struct AppState {
 }
 
 impl AppState {
+    #[cfg_attr(test, allow(dead_code))]
     pub fn new(app_dir: &std::path::Path) -> SqlResult<Self> {
         let db_path = app_dir.join("rift.db");
         let db = Connection::open(db_path)?;

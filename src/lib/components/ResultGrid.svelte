@@ -3,6 +3,7 @@
   import { connectionStore } from "../stores/connection";
   import { schemaStore } from "../stores/schema";
   import { invoke } from "@tauri-apps/api/core";
+  import { settingsStore } from "../stores/settings";
   import ChartPanel from "./ChartPanel.svelte";
   import ExplainPanel from "./ExplainPanel.svelte";
   import ProfilePanel from "./ProfilePanel.svelte";
@@ -110,7 +111,7 @@
         pkValue: pkValue,
       });
       // Refresh
-      await queryStore.executeQuery(connectionStore.activeConnectionId, activeTab.id);
+      await queryStore.executeQuery(connectionStore.activeConnectionId, activeTab.id, settingsStore.settings.queryTimeout);
     } catch (e) {
       console.error("Update failed:", e);
     } finally {

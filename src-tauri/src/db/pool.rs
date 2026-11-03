@@ -1,6 +1,5 @@
 use crate::db::connection::ConnectionConfig;
 use deadpool_postgres::{Config, Pool, Runtime};
-use tokio_postgres::NoTls;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PoolError {
@@ -10,6 +9,16 @@ pub enum PoolError {
     Postgres(#[from] tokio_postgres::Error),
     #[error("mysql error: {0}")]
     Mysql(#[from] mysql_async::Error),
+    #[error("TLS setup failed: {0}")]
+    Tls(String),
+}
+
+fn ssl_mode(config: &ConnectionConfig) -> deadpool_postgres::SslMode {
+    match config.ssl_mode.to_lowercase().as_str() {
+        "disable" => deadpool_postgres::SslMode::Disable,
+        "require" => deadpool_postgres::SslMode::Require,
+        _ => deadpool_postgres::SslMode::Prefer,
+    }
 }
 
 pub fn create_pool(config: &ConnectionConfig) -> Result<Pool, PoolError> {
@@ -19,11 +28,22 @@ pub fn create_pool(config: &ConnectionConfig) -> Result<Pool, PoolError> {
     cfg.dbname = Some(config.database.clone());
     cfg.user = Some(config.username.clone());
     cfg.password = Some(config.password.clone());
+    cfg.ssl_mode = Some(ssl_mode(config));
+    cfg.connect_timeout = Some(std::time::Duration::from_secs(10));
     cfg.manager = Some(deadpool_postgres::ManagerConfig {
         recycling_method: deadpool_postgres::RecyclingMethod::Fast,
     });
 
-    let pool = cfg.create_pool(Some(Runtime::Tokio1), NoTls)?;
+    if ssl_mode(config) == deadpool_postgres::SslMode::Disable {
+        let pool = cfg.create_pool(Some(Runtime::Tokio1), tokio_postgres::NoTls)?;
+        return Ok(pool);
+    }
+
+    let connector = native_tls::TlsConnector::builder()
+        .build()
+        .map_err(|e| PoolError::Tls(e.to_string()))?;
+    let tls = postgres_native_tls::MakeTlsConnector::new(connector);
+    let pool = cfg.create_pool(Some(Runtime::Tokio1), tls)?;
     Ok(pool)
 }
 

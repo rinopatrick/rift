@@ -5,6 +5,7 @@
   import CodeMirrorEditor from "./CodeMirrorEditor.svelte";
   import type { Completion } from "@codemirror/autocomplete";
   import { invoke } from "@tauri-apps/api/core";
+  import { settingsStore } from "../stores/settings";
 
   let activeTab = $derived(queryStore.tabs.find((t) => t.id === queryStore.activeTabId));
 
@@ -42,7 +43,7 @@
 
   function handleRun() {
     if (connectionStore.activeConnectionId && activeTab) {
-      queryStore.executeQuery(connectionStore.activeConnectionId, activeTab.id);
+      queryStore.executeQuery(connectionStore.activeConnectionId, activeTab.id, settingsStore.settings.queryTimeout);
     }
   }
 
@@ -50,7 +51,7 @@
     if (connectionStore.activeConnectionId && activeTab) {
       const newTab = queryStore.addTab();
       queryStore.updateSql(newTab.id, activeTab.sql);
-      queryStore.executeQuery(connectionStore.activeConnectionId, newTab.id);
+      queryStore.executeQuery(connectionStore.activeConnectionId, newTab.id, settingsStore.settings.queryTimeout);
     }
   }
 

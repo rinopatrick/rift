@@ -80,15 +80,12 @@ pub fn save_connection(
     state: State<AppState>,
     config: ConnectionConfig,
 ) -> Result<ConnectionInfo, String> {
-    crate::keyring::set_password(&config.id, &config.password).map_err(|e| {
-        format!("Failed to store database password in OS keyring: {}", e)
-    })?;
-    crate::keyring::set_ssh_password(&config.id, &config.ssh_password).map_err(|e| {
-        format!("Failed to store SSH password in OS keyring: {}", e)
-    })?;
-    crate::keyring::set_ssh_passphrase(&config.id, &config.ssh_passphrase).map_err(|e| {
-        format!("Failed to store SSH passphrase in OS keyring: {}", e)
-    })?;
+    crate::keyring::set_password(&config.id, &config.password)
+        .map_err(|e| format!("Failed to store database password in OS keyring: {}", e))?;
+    crate::keyring::set_ssh_password(&config.id, &config.ssh_password)
+        .map_err(|e| format!("Failed to store SSH password in OS keyring: {}", e))?;
+    crate::keyring::set_ssh_passphrase(&config.id, &config.ssh_passphrase)
+        .map_err(|e| format!("Failed to store SSH passphrase in OS keyring: {}", e))?;
 
     let state = state.0.lock().map_err(|e| e.to_string())?;
     state.save_connection(&config).map_err(|e| e.to_string())?;
@@ -178,6 +175,7 @@ pub async fn execute_sql(
     connection_id: String,
     sql: String,
     query_id: String,
+    timeout_secs: Option<u64>,
 ) -> Result<crate::db::query::QueryResult, String> {
     // Clone driver and release pool lock so other operations aren't blocked
     let driver = {
@@ -189,32 +187,32 @@ pub async fn execute_sql(
         }
     };
 
-    let handle: tokio::task::JoinHandle<Result<crate::db::query::QueryResult, String>>;
     let mut pid: Option<i32> = None;
 
-    match &driver {
-        DriverWrapper::Postgres(pool) => {
-            let client = pool
-                .get()
-                .await
-                .map_err(|e| humanize_error(&e.to_string()))?;
-            // Get backend PID for server-side cancellation support
-            if let Ok(rows) = client.query("SELECT pg_backend_pid()", &[]).await {
-                if let Some(row) = rows.first() {
-                    pid = row.get::<_, i32>(0).into();
-                }
-            }
-            let sql = sql.clone();
-            handle = tokio::spawn(async move {
-                crate::db::query::execute_query(&client, &sql)
+    let handle: tokio::task::JoinHandle<Result<crate::db::query::QueryResult, String>> =
+        match &driver {
+            DriverWrapper::Postgres(pool) => {
+                let client = pool
+                    .get()
                     .await
-                    .map_err(|e| humanize_error(&e.to_string()))
-            });
-        }
-        _ => {
-            handle = tokio::spawn(async move { driver.execute(&sql).await });
-        }
-    }
+                    .map_err(|e| humanize_error(&e.to_string()))?;
+                if let Ok(rows) = client.query("SELECT pg_backend_pid()", &[]).await {
+                    if let Some(row) = rows.first() {
+                        pid = row.get::<_, i32>(0).into();
+                    }
+                }
+                let sql = sql.clone();
+                let timeout_ms = timeout_secs.unwrap_or(30).clamp(1, 600) * 1000;
+                let timeout_sql = format!("SET LOCAL statement_timeout = {}", timeout_ms);
+                let _ = client.execute(timeout_sql.as_str(), &[]).await;
+                tokio::spawn(async move {
+                    crate::db::query::execute_query(&client, &sql)
+                        .await
+                        .map_err(|e| humanize_error(&e.to_string()))
+                })
+            }
+            _ => tokio::spawn(async move { driver.execute(&sql).await }),
+        };
 
     {
         let mut aq = active_queries.0.lock().await;
@@ -293,6 +291,7 @@ pub async fn execute_multi_sql(
     connection_id: String,
     sql: String,
     query_id: String,
+    timeout_secs: Option<u64>,
 ) -> Result<Vec<crate::db::query::QueryResult>, String> {
     let statements = split_sql_statements(&sql);
     if statements.is_empty() {
@@ -308,6 +307,13 @@ pub async fn execute_multi_sql(
         }
     };
 
+    let timeout_ms = timeout_secs.unwrap_or(30).clamp(1, 600) * 1000;
+    if let DriverWrapper::Postgres(pool) = &driver {
+        if let Ok(client) = pool.get().await {
+            let timeout_sql = format!("SET statement_timeout = {}", timeout_ms);
+            let _ = client.execute(timeout_sql.as_str(), &[]).await;
+        }
+    }
     let handle = tokio::spawn(async move {
         let mut results = Vec::with_capacity(statements.len());
         for stmt in statements {
@@ -465,30 +471,15 @@ pub async fn export_csv(
     let driver = pools.get(&connection_id).ok_or("Not connected")?;
     let result = driver.execute(&sql).await?;
 
-    let mut csv = String::new();
-    csv.push_str(
-        &result
-            .columns
-            .iter()
-            .map(|c| c.name.clone())
-            .collect::<Vec<_>>()
-            .join(","),
-    );
-    csv.push('\n');
-
+    let mut wtr = csv::WriterBuilder::new().from_writer(Vec::new());
+    let headers: Vec<&str> = result.columns.iter().map(|c| c.name.as_str()).collect();
+    wtr.write_record(headers).map_err(|e| e.to_string())?;
     for row in &result.rows {
-        let cells: Vec<String> = row
-            .iter()
-            .map(|c| match c {
-                Some(v) => format!("\"{}\"", v.replace('\"', "\"\"")),
-                None => "\"\"".to_string(),
-            })
-            .collect();
-        csv.push_str(&cells.join(","));
-        csv.push('\n');
+        let cells: Vec<&str> = row.iter().map(|c| c.as_deref().unwrap_or("")).collect();
+        wtr.write_record(cells).map_err(|e| e.to_string())?;
     }
-
-    Ok(csv)
+    let bytes = wtr.into_inner().map_err(|e| e.to_string())?;
+    String::from_utf8(bytes).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -577,6 +568,7 @@ pub async fn import_csv(
     }
 
     // Determine driver type for type mapping
+    let quoted_table = validate_import_table_name(&table_name)?;
     let is_sqlite = matches!(driver, DriverWrapper::Sqlite(_));
 
     // Build CREATE TABLE
@@ -601,13 +593,17 @@ pub async fn import_csv(
                     _ => "TEXT",
                 }
             };
-            format!("\"{}\" {}", name, sql_type)
+            let quoted_col = match crate::db::idents::quote_ident(name) {
+                Ok(q) => q,
+                Err(_) => format!("\"col_{i}\""),
+            };
+            format!("{} {}", quoted_col, sql_type)
         })
         .collect();
 
     let create_sql = format!(
-        "CREATE TABLE IF NOT EXISTS \"{}\" ({})",
-        table_name,
+        "CREATE TABLE IF NOT EXISTS {} ({})",
+        quoted_table,
         create_cols.join(", ")
     );
     driver.execute(&create_sql).await?;
@@ -629,14 +625,17 @@ pub async fn import_csv(
                 .collect();
             values_parts.push(format!("({})", vals.join(", ")));
         }
+        let quoted_headers: Vec<String> = headers
+            .iter()
+            .enumerate()
+            .map(|(i, h)| {
+                crate::db::idents::quote_ident(h).unwrap_or_else(|_| format!("\"col_{i}\""))
+            })
+            .collect();
         let insert_sql = format!(
-            "INSERT INTO \"{}\" ({}) VALUES {}",
-            table_name,
-            headers
-                .iter()
-                .map(|h| format!("\"{}\"", h))
-                .collect::<Vec<_>>()
-                .join(", "),
+            "INSERT INTO {} ({}) VALUES {}",
+            quoted_table,
+            quoted_headers.join(", "),
             values_parts.join(", ")
         );
         driver.execute(&insert_sql).await?;
@@ -657,6 +656,10 @@ fn sanitize_column_name(name: &str) -> String {
         .trim_start_matches('_')
         .trim_end_matches('_')
         .to_string()
+}
+
+fn validate_import_table_name(name: &str) -> Result<String, String> {
+    crate::db::idents::quote_ident(name)
 }
 
 fn detect_type(val: &str) -> &'static str {
