@@ -52,6 +52,7 @@ pub fn run() {
             commands::profile_query,
             commands::get_foreign_keys,
             commands::diff_schemas,
+            commands::diff_schemas_migration_sql,
             commands::list_plugins,
             commands::read_plugin,
             commands::save_setting,
@@ -95,14 +96,19 @@ mod test_entry {
         let _ = commands::profile_query;
         let _ = commands::get_foreign_keys;
         let _ = commands::diff_schemas;
+        let _ = commands::diff_schemas_migration_sql;
         let _ = commands::list_plugins;
         let _ = commands::read_plugin;
         let _ = commands::save_setting;
         let _ = commands::get_settings;
         let _ = db::connection::ConnectionConfig::new;
         let _ = db::pool::create_pool;
+        let _ = db::pool::resolve_ssl_policy;
+        let _ = db::error::humanize_error_with_hint;
         let _ = db::pool::create_mysql_pool;
         let _ = db::query::execute_query;
+        let _ = db::schema_diff::diff_postgres_schemas;
+        let _ = db::schema_diff::render_migration_sql;
         let _ = db::error::humanize_error;
         let _ = keyring::set_password;
         let _ = plugin::list_plugins;
