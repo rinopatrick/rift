@@ -176,12 +176,12 @@ cargo build
 - [x] SQLite driver
 - [x] MySQL driver
 - [x] SSH tunnel support
-- [ ] Database migration diff view
+- [x] Database migration diff view (compare schemas + generated migration SQL)
 
 ### v0.5 — Performance & Polish
 - [x] Query profiler with bottleneck detection
 - [x] Multi-resultset support
-- [ ] Database migration diff view
+- [x] Database migration diff view (compare schemas + generated migration SQL)
 - [x] Connection timeout / SSL error human-readable messages
 
 ### Future

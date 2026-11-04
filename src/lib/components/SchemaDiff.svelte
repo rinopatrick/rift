@@ -86,19 +86,19 @@
     <button
       onclick={generateMigration}
       disabled={!sourceId || !targetId || migrationLoading}
-      class="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded text-sm font-medium"
+      class="bg-[#00d4ff] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-black px-4 py-2 rounded text-sm font-medium"
     >
       {migrationLoading ? 'Generating...' : 'Migration SQL'}
     </button>
   </div>
 
   {#if migrationSql}
-    <div class="mb-6 border border-emerald-800/60 bg-emerald-950/20 rounded overflow-hidden">
-      <div class="flex items-center justify-between px-4 py-2 border-b border-emerald-800/40">
-        <span class="text-xs font-medium text-emerald-400">Migration SQL (source → target)</span>
+    <div class="mb-6 border border-[#2a2a2a] bg-[#141414] rounded overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-2 border-b border-[#2a2a2a]">
+        <span class="text-xs font-medium text-[#00d4ff]">Migration SQL (source → target)</span>
         <button
           onclick={copyMigration}
-          class="text-[11px] px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white"
+          class="text-[11px] px-2 py-1 rounded bg-[#1a1a1a] border border-[#2a2a2a] text-[#a0a0a0] hover:text-[#e8e8e8] hover:border-[#333333]"
         >
           {copied ? 'Copied!' : 'Copy'}
         </button>
