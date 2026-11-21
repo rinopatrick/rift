@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { schemaStore } from "../stores/schema";
-  import { queryStore } from "../stores/query";
+  import { schemaStore } from "../stores/schema.svelte";
+  import { queryStore } from "../stores/query.svelte";
 
   function useTable(schema: string, table: string) {
     const sql = `SELECT * FROM "${schema}"."${table}" LIMIT 100;`;

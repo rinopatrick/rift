@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { uiStore } from "../stores/ui";
-  import { connectionStore } from "../stores/connection";
+  import { uiStore } from "../stores/ui.svelte";
+  import { connectionStore } from "../stores/connection.svelte";
   import type { ConnectionConfig } from "../types";
 
   let driver = $state<"postgres" | "mysql" | "sqlite">("postgres");

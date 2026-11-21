@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { bookmarkStore } from "../stores/bookmark";
-  import { connectionStore } from "../stores/connection";
-  import { queryStore } from "../stores/query";
+  import { bookmarkStore } from "../stores/bookmark.svelte";
+  import { connectionStore } from "../stores/connection.svelte";
+  import { queryStore } from "../stores/query.svelte";
 
   let visible = $state(false);
   let newName = $state("");

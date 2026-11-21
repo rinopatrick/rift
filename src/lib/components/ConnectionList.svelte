@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { connectionStore } from "../stores/connection";
-  import { uiStore } from "../stores/ui";
+  import { connectionStore } from "../stores/connection.svelte";
+  import { uiStore } from "../stores/ui.svelte";
 
   $effect(() => {
     connectionStore.loadConnections();

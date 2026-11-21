@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { uiStore } from "../stores/ui";
+  import { uiStore } from "../stores/ui.svelte";
   import ConnectionList from "./ConnectionList.svelte";
   import SchemaTree from "./SchemaTree.svelte";
   import BookmarkPanel from "./BookmarkPanel.svelte";

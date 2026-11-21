@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { queryStore } from "../stores/query";
+  import { queryStore } from "../stores/query.svelte";
 </script>
 
 <div class="flex items-center bg-[#0c0c0c] border-b border-[#2a2a2a] h-8 overflow-x-auto">

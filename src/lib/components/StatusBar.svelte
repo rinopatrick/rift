@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { connectionStore } from "../stores/connection";
-  import { queryStore } from "../stores/query";
+  import { connectionStore } from "../stores/connection.svelte";
+  import { queryStore } from "../stores/query.svelte";
   import QueryHistory from "./QueryHistory.svelte";
 
   let activeConn = $derived(

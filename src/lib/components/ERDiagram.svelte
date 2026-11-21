@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
-  import { connectionStore } from "../stores/connection";
-  import { schemaStore } from "../stores/schema";
+  import { connectionStore } from "../stores/connection.svelte";
+  import { schemaStore } from "../stores/schema.svelte";
 
   interface ForeignKeyInfo {
     constraint_name: string;

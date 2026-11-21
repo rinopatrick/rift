@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { queryStore } from "../stores/query";
-  import { connectionStore } from "../stores/connection";
-  import { schemaStore } from "../stores/schema";
+  import { queryStore } from "../stores/query.svelte";
+  import { connectionStore } from "../stores/connection.svelte";
+  import { schemaStore } from "../stores/schema.svelte";
   import { invoke } from "@tauri-apps/api/core";
-  import { settingsStore } from "../stores/settings";
+  import { settingsStore } from "../stores/settings.svelte";
   import ChartPanel from "./ChartPanel.svelte";
   import ExplainPanel from "./ExplainPanel.svelte";
   import ProfilePanel from "./ProfilePanel.svelte";
