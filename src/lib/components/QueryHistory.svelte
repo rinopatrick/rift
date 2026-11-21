@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
-  import { connectionStore } from "../stores/connection";
-  import { queryStore } from "../stores/query";
+  import { connectionStore } from "../stores/connection.svelte";
+  import { queryStore } from "../stores/query.svelte";
   import type { QueryHistoryItem } from "../types";
 
   let history = $state<QueryHistoryItem[]>([]);

@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { queryStore } from "../stores/query";
-  import { connectionStore } from "../stores/connection";
-  import { schemaStore } from "../stores/schema";
+  import { queryStore } from "../stores/query.svelte";
+  import { connectionStore } from "../stores/connection.svelte";
+  import { schemaStore } from "../stores/schema.svelte";
   import CodeMirrorEditor from "./CodeMirrorEditor.svelte";
   import type { Completion } from "@codemirror/autocomplete";
   import { invoke } from "@tauri-apps/api/core";
-  import { settingsStore } from "../stores/settings";
+  import { settingsStore } from "../stores/settings.svelte";
 
   let activeTab = $derived(queryStore.tabs.find((t) => t.id === queryStore.activeTabId));
 

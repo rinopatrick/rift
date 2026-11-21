@@ -1,6 +1,6 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
-  import { connectionStore } from "../stores/connection";
+  import { connectionStore } from "../stores/connection.svelte";
 
   interface Props {
     onClose: () => void;

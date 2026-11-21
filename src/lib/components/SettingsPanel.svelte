@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { settingsStore } from "../stores/settings";
+  import { settingsStore } from "../stores/settings.svelte";
 
   interface Props {
     onClose: () => void;

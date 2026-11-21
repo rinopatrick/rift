@@ -7,8 +7,8 @@
   import StatusBar from "./lib/components/StatusBar.svelte";
   import ERDiagram from "./lib/components/ERDiagram.svelte";
   import SchemaDiff from "./lib/components/SchemaDiff.svelte";
-  import { settingsStore } from "./lib/stores/settings";
-  import { connectionStore } from "./lib/stores/connection";
+  import { settingsStore } from "./lib/stores/settings.svelte";
+  import { connectionStore } from "./lib/stores/connection.svelte";
 
   let mainView = $state<"query" | "erd" | "diff">("query");
 

@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ConnectionConfig, ConnectionInfo } from "../types";
-import { schemaStore } from "./schema";
+import { schemaStore } from "./schema.svelte";
 
 export function createConnectionStore() {
   let connections = $state<ConnectionInfo[]>([]);
