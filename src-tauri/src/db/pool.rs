@@ -13,28 +13,50 @@ pub enum PoolError {
     Tls(String),
 }
 
-fn ssl_mode(config: &ConnectionConfig) -> deadpool_postgres::SslMode {
-    match config.ssl_mode.to_lowercase().as_str() {
-        "disable" => deadpool_postgres::SslMode::Disable,
-        "require" => deadpool_postgres::SslMode::Require,
-        _ => deadpool_postgres::SslMode::Prefer,
+/// Resolved TLS policy for a connection. Pure function so the mapping
+/// from user-facing `ssl_mode` strings to deadpool behavior is unit-testable
+/// without opening any socket.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TlsPolicy {
+    Disabled,
+    Prefer,
+    Require,
+}
+
+pub fn resolve_ssl_policy(raw: &str) -> TlsPolicy {
+    match raw.trim().to_lowercase().as_str() {
+        "disable" => TlsPolicy::Disabled,
+        "require" => TlsPolicy::Require,
+        _ => TlsPolicy::Prefer,
     }
 }
 
+fn deadpool_ssl_mode(policy: TlsPolicy) -> deadpool_postgres::SslMode {
+    match policy {
+        TlsPolicy::Disabled => deadpool_postgres::SslMode::Disable,
+        TlsPolicy::Require => deadpool_postgres::SslMode::Require,
+        TlsPolicy::Prefer => deadpool_postgres::SslMode::Prefer,
+    }
+}
+
+/// Timeout applied while establishing a new pooled connection.
+pub const CONNECT_TIMEOUT_SECS: u64 = 10;
+
 pub fn create_pool(config: &ConnectionConfig) -> Result<Pool, PoolError> {
+    let policy = resolve_ssl_policy(&config.ssl_mode);
     let mut cfg = Config::new();
     cfg.host = Some(config.host.clone());
     cfg.port = Some(config.port);
     cfg.dbname = Some(config.database.clone());
     cfg.user = Some(config.username.clone());
     cfg.password = Some(config.password.clone());
-    cfg.ssl_mode = Some(ssl_mode(config));
-    cfg.connect_timeout = Some(std::time::Duration::from_secs(10));
+    cfg.ssl_mode = Some(deadpool_ssl_mode(policy));
+    cfg.connect_timeout = Some(std::time::Duration::from_secs(CONNECT_TIMEOUT_SECS));
     cfg.manager = Some(deadpool_postgres::ManagerConfig {
         recycling_method: deadpool_postgres::RecyclingMethod::Fast,
     });
 
-    if ssl_mode(config) == deadpool_postgres::SslMode::Disable {
+    if policy == TlsPolicy::Disabled {
         let pool = cfg.create_pool(Some(Runtime::Tokio1), tokio_postgres::NoTls)?;
         return Ok(pool);
     }
@@ -56,4 +78,28 @@ pub fn create_mysql_pool(config: &ConnectionConfig) -> Result<mysql_async::Pool,
         .pass(Some(&config.password))
         .into();
     Ok(mysql_async::Pool::new(opts))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolves_disable_case_insensitively() {
+        assert_eq!(resolve_ssl_policy("disable"), TlsPolicy::Disabled);
+        assert_eq!(resolve_ssl_policy("DISABLE"), TlsPolicy::Disabled);
+        assert_eq!(resolve_ssl_policy("  disable  "), TlsPolicy::Disabled);
+    }
+
+    #[test]
+    fn resolves_require() {
+        assert_eq!(resolve_ssl_policy("require"), TlsPolicy::Require);
+    }
+
+    #[test]
+    fn unknown_modes_fall_back_to_prefer() {
+        assert_eq!(resolve_ssl_policy("prefer"), TlsPolicy::Prefer);
+        assert_eq!(resolve_ssl_policy(""), TlsPolicy::Prefer);
+        assert_eq!(resolve_ssl_policy("bogus-mode"), TlsPolicy::Prefer);
+    }
 }
